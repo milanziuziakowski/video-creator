@@ -542,7 +542,7 @@ OPENAI_API_KEY=sk-proj-...  # For AI-powered prompt generation
 
 # Optional
 STORAGE_TYPE=local  # local, s3, azure, gcp
-DB_TYPE=sqlite
+DB_TYPE=postgresql
 LOG_LEVEL=INFO
 ```
 

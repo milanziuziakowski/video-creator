@@ -106,8 +106,8 @@ PROJECT_ROOT_PATH=./storage/projects
 TEMP_FOLDER=./storage/temp
 
 # Database
-DB_TYPE=sqlite
-DB_URL=sqlite:///./test_video_creator.db
+DB_TYPE=postgresql
+DB_URL=postgresql://user:password@localhost:5432/test_video_creator
 
 # Logging
 LOG_LEVEL=INFO

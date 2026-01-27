@@ -211,7 +211,7 @@ cp .env.example .env
 # MINIMAX_API_KEY=xxxx         (add when ready)
 # OPENAI_API_KEY=sk-xxx        (for Agents)
 # STORAGE_TYPE=local|s3|azure  (local during dev)
-# DB_TYPE=sqlite|postgres      (sqlite during dev)
+# DB_TYPE=postgres              (postgres during dev)
 ```
 
 ### Step 3: Implement MCP Servers

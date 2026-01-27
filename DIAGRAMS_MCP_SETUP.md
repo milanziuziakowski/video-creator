@@ -228,7 +228,7 @@ The diagrams generated are PNG/PDF files that can be:
 from diagrams import Diagram, Cluster, Edge
 from diagrams.programming.language import Python
 from diagrams.onprem.queue import Kafka
-from diagrams.onprem.database import PostgreSQL, SQLite
+from diagrams.onprem.database import PostgreSQL
 from diagrams.onprem.inmemory import Redis
 from diagrams.custom import Custom
 
