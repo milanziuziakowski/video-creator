@@ -1,0 +1,77 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "video-creator"
+version = "0.1.0"
+description = "1-minute video studio with MiniMax + OpenAI Agents"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    {name = "me", email = "me@example.com"}
+]
+
+dependencies = [
+    # MCP Framework
+    "mcp>=1.2.0",
+    
+    # OpenAI
+    "openai>=1.0.0",
+    
+    # HTTP & API
+    "httpx>=0.24.0",
+    "requests>=2.31.0",
+    
+    # Data Processing
+    "pydantic>=2.0.0",
+    "python-dotenv>=1.0.0",
+    
+    # Media Operations (FFmpeg)
+    "ffmpeg-python>=0.2.1",
+    
+    # Database
+    "sqlalchemy>=2.0.0",
+    "alembic>=1.12.0",
+    
+    # Utilities
+    "pydantic-settings>=2.0.0",
+    "python-dateutil>=2.8.0",
+    
+    # CLI
+    "click>=8.1.0",
+    "rich>=13.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "flake8>=6.0.0",
+    "mypy>=1.5.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+asyncio_mode = "auto"
+
+[tool.black]
+line-length = 100
+target-version = ['py310']
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.mypy]
+python_version = "3.13"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false

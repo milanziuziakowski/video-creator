@@ -1,0 +1,1 @@
+"""MiniMax MCP Server module."""

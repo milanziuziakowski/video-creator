@@ -1,0 +1,40 @@
+# Environment variables (contains secrets)
+.env
+.env.local
+
+# Python
+*__pycache__*
+*.py[cod]
+*$py.class
+
+env/
+venv/
+
+wheels/
+
+# Virtual environments
+.venv/
+.venv
+
+# IDE
+# .vscode/settings.json
+# .vscode/launch.json
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Storage
+storage/projects/
+storage/temp/
+
+# Database
+*.db
+video_creator.db
+
+# Logs
+*.log
+logs/
