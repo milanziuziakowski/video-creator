@@ -1,4 +1,4 @@
-import { Configuration, LogLevel } from '@azure/msal-browser';
+import { Configuration, LogLevel, BrowserCacheLocation } from '@azure/msal-browser';
 
 export const msalConfig: Configuration = {
   auth: {
@@ -8,8 +8,9 @@ export const msalConfig: Configuration = {
     postLogoutRedirectUri: window.location.origin,
   },
   cache: {
-    cacheLocation: 'sessionStorage',
-    storeAuthStateInCookie: false,
+    // Use localStorage for persistent authentication across browser sessions
+    // In MSAL v4+, localStorage is encrypted unless user selects "Keep me signed in"
+    cacheLocation: BrowserCacheLocation.LocalStorage,
   },
   system: {
     loggerOptions: {
