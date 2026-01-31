@@ -1,0 +1,205 @@
+name: Backend Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+# Prevent concurrent deployments to same environment
+concurrency:
+  group: backend-deploy-${{ github.event.inputs.environment || 'production' }}
+  cancel-in-progress: false  # Don't cancel in-progress deployments
+
+defaults:
+  run:
+    working-directory: backend
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  # Run tests before deploy (safety gate)
+  pre-deploy-tests:
+    name: Pre-Deploy Verification
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+      
+      - name: Install dependencies
+        run: uv sync --dev
+      
+      - name: Run smoke tests
+        env:
+          DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/test_db
+          OPENAI_API_KEY: 'sk-test'
+          MINIMAX_API_KEY: 'test'
+        run: |
+          uv run pytest tests/ -v -x --tb=short -m "not slow"
+
+  deploy:
+    name: Deploy to Azure App Service
+    runs-on: ubuntu-latest
+    needs: pre-deploy-tests
+    environment:
+      name: ${{ github.event.inputs.environment || 'production' }}
+      url: ${{ steps.deploy.outputs.webapp-url }}
+    
+    outputs:
+      webapp-url: ${{ steps.deploy.outputs.webapp-url }}
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+      
+      - name: Install dependencies (production only)
+        run: uv sync --no-dev
+      
+      - name: Create deployment package
+        run: |
+          mkdir -p deploy
+          cp -r app deploy/
+          cp pyproject.toml deploy/
+          cp uv.lock deploy/
+          # Create startup script for Azure
+          cat > deploy/startup.sh << 'EOF'
+          #!/bin/bash
+          pip install uv
+          uv sync --no-dev
+          gunicorn -w 4 -k uvicorn.workers.UvicornWorker app.main:app --bind 0.0.0.0:8000
+          EOF
+          chmod +x deploy/startup.sh
+          cd deploy && zip -r ../deploy.zip .
+      
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      
+      - name: Deploy to Azure App Service
+        id: deploy
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
+          package: backend/deploy.zip
+      
+      - name: Configure App Settings
+        uses: azure/appservice-settings@v1
+        with:
+          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
+          app-settings-json: |
+            [
+              {"name": "SCM_DO_BUILD_DURING_DEPLOYMENT", "value": "true"},
+              {"name": "ENABLE_ORYX_BUILD", "value": "true"},
+              {"name": "OPENAI_API_KEY", "value": "${{ secrets.OPENAI_API_KEY }}", "slotSetting": false},
+              {"name": "MINIMAX_API_KEY", "value": "${{ secrets.MINIMAX_API_KEY }}", "slotSetting": false},
+              {"name": "DATABASE_URL", "value": "${{ secrets.AZURE_DB_CONNECTION_STRING }}", "slotSetting": false},
+              {"name": "AZURE_TENANT_ID", "value": "${{ secrets.AZURE_TENANT_ID }}", "slotSetting": false},
+              {"name": "AZURE_CLIENT_ID", "value": "${{ secrets.AZURE_CLIENT_ID }}", "slotSetting": false}
+            ]
+
+      - name: Logout from Azure
+        if: always()
+        run: az logout
+
+  # Post-deployment verification
+  health-check:
+    name: Health Check
+    runs-on: ubuntu-latest
+    needs: deploy
+    
+    steps:
+      - name: Wait for deployment to stabilize
+        run: sleep 30
+      
+      - name: Check health endpoint
+        run: |
+          WEBAPP_URL="${{ needs.deploy.outputs.webapp-url }}"
+          echo "Checking health at: ${WEBAPP_URL}/api/v1/health"
+          
+          for i in {1..5}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${WEBAPP_URL}/api/v1/health" || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ Health check passed!"
+              exit 0
+            fi
+            echo "Attempt $i: Status $STATUS, retrying in 10s..."
+            sleep 10
+          done
+          
+          echo "❌ Health check failed after 5 attempts"
+          exit 1
+      
+      - name: Verify API documentation accessible
+        run: |
+          WEBAPP_URL="${{ needs.deploy.outputs.webapp-url }}"
+          curl -f "${WEBAPP_URL}/docs" || echo "⚠️ Docs endpoint not accessible"
+
+  # Notify on failure
+  notify-failure:
+    name: Notify on Failure
+    runs-on: ubuntu-latest
+    needs: [deploy, health-check]
+    if: failure()
+    
+    steps:
+      - name: Create GitHub Issue on Failure
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🚨 Deployment Failed: ${context.workflow}`,
+              body: `## Deployment Failure
+              
+              **Workflow:** ${context.workflow}
+              **Run:** ${context.runNumber}
+              **Commit:** ${context.sha}
+              **Actor:** @${context.actor}
+              
+              [View workflow run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})
+              `,
+              labels: ['deployment-failure', 'urgent']
+            })

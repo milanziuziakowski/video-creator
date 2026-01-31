@@ -1,0 +1,71 @@
+"""Project Pydantic models for API."""
+
+from datetime import datetime
+from typing import Optional, List
+from pydantic import Field
+
+from app.models.base import APIModel
+
+from app.db.models.project import ProjectStatus
+
+
+class ProjectBase(APIModel):
+    """Base project schema."""
+
+    name: str = Field(..., min_length=1, max_length=255)
+    story_prompt: Optional[str] = None
+    target_duration_sec: int = Field(60, ge=6, le=60)
+    segment_len_sec: int = Field(6, ge=6, le=10, alias="segmentDurationSec")
+
+
+class ProjectCreate(ProjectBase):
+    """Schema for creating a project."""
+
+    pass
+
+
+class ProjectUpdate(APIModel):
+    """Schema for updating a project."""
+
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    story_prompt: Optional[str] = None
+    target_duration_sec: Optional[int] = Field(None, ge=6, le=60)
+    segment_len_sec: Optional[int] = Field(None, ge=6, le=10, alias="segmentDurationSec")
+
+
+class SegmentSummary(APIModel):
+    """Brief segment info for project listing."""
+
+    id: str
+    index: int
+    status: str
+    approved: bool
+
+    class Config(APIModel.Config):
+        from_attributes = True
+
+
+class ProjectResponse(ProjectBase):
+    """Schema for project response."""
+
+    id: str
+    user_id: str
+    segment_count: int
+    voice_id: Optional[str] = None
+    first_frame_url: Optional[str] = None
+    audio_sample_url: Optional[str] = None
+    final_video_url: Optional[str] = None
+    status: ProjectStatus
+    segments: List[SegmentSummary] = []
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config(APIModel.Config):
+        from_attributes = True
+
+
+class ProjectListResponse(APIModel):
+    """Schema for project list response."""
+
+    projects: List[ProjectResponse]
+    total: int

@@ -43,29 +43,59 @@ alembic upgrade head
 ### 1.2 Environment Variables (.env.example)
 
 ```bash
+# ============================================================================
 # Application
-APP_NAME=AI Video Creator
+# ============================================================================
+APP_NAME=AI-Video-Creator
 APP_ENV=development
 DEBUG=true
 
+# ============================================================================
 # API Keys
-OPENAI_API_KEY=sk-proj-your-key-here
-MINIMAX_API_KEY=your-minimax-api-key-here
+# ============================================================================
+# Get your API key from: https://platform.openai.com/api-keys
+OPENAI_API_KEY=sk-proj-your-openai-api-key
 
+# Get your API key from: https://platform.minimaxi.com/
+MINIMAX_API_KEY=sk-api-your-minimax-api-key
+
+# ============================================================================
 # Azure Entra ID (for token validation)
+# ============================================================================
 AZURE_TENANT_ID=your-tenant-id
 AZURE_CLIENT_ID=your-client-id
 
-# Database
-DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/video_creator
-# For development: sqlite+aiosqlite:///./video_creator.db
+# ============================================================================
+# Database Configuration
+# ============================================================================
+# Production: postgresql+asyncpg://user:password@localhost:5432/video_creator
+# Development: sqlite+aiosqlite:///./video_creator.db
+DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/video_creator
 
-# Storage
+# ============================================================================
+# Storage Configuration
+# ============================================================================
 STORAGE_PATH=./storage
 UPLOAD_MAX_SIZE_MB=20
 
-# CORS
+# ============================================================================
+# CORS Configuration
+# ============================================================================
 CORS_ORIGINS=http://localhost:3000,http://localhost:5173
+
+# ============================================================================
+# MCP Server Settings (for MCP tools)
+# ============================================================================
+MCP_TRANSPORT=stdio
+MCP_LOG_LEVEL=DEBUG
+LOG_LEVEL=INFO
+
+# ============================================================================
+# FFmpeg Configuration (for mediaops_mcp)
+# ============================================================================
+# FFmpeg binary path (leave empty to use system PATH)
+FFMPEG_PATH=
+FFPROBE_PATH=
 ```
 
 ---
@@ -445,6 +475,94 @@ class GenerationStatusResponse(BaseModel):
     download_url: Optional[str] = None
     error: Optional[str] = None
     progress: Optional[int] = None  # 0-100
+
+
+class FL2VResolution(str, Enum):
+    """Supported resolutions for First & Last Frame video generation."""
+    RES_768P = "768P"
+    RES_1080P = "1080P"
+    # Note: 512P is NOT supported for FL2V
+
+
+class CameraCommand(str, Enum):
+    """Camera movement commands for MiniMax video generation prompts."""
+    TRUCK_LEFT = "[Truck left]"
+    TRUCK_RIGHT = "[Truck right]"
+    PAN_LEFT = "[Pan left]"
+    PAN_RIGHT = "[Pan right]"
+    PUSH_IN = "[Push in]"
+    PULL_OUT = "[Pull out]"
+    PEDESTAL_UP = "[Pedestal up]"
+    PEDESTAL_DOWN = "[Pedestal down]"
+    TILT_UP = "[Tilt up]"
+    TILT_DOWN = "[Tilt down]"
+    ZOOM_IN = "[Zoom in]"
+    ZOOM_OUT = "[Zoom out]"
+    SHAKE = "[Shake]"
+    TRACKING_SHOT = "[Tracking shot]"
+    STATIC_SHOT = "[Static shot]"
+
+
+class FL2VGenerateRequest(BaseModel):
+    """Request to generate First & Last Frame video (FL2V).
+    
+    Uses MiniMax Hailuo API endpoint: POST /v1/video_generation
+    
+    Image Requirements:
+        - Formats: JPG, JPEG, PNG, WebP
+        - Size: < 20MB each
+        - Dimensions: Short side > 300px, Aspect ratio 2:5 to 5:2
+    """
+    
+    segment_id: str
+    prompt: str = Field(
+        default="",
+        max_length=2000,
+        description="Video description. Can include camera commands like [Zoom in], [Pan left]"
+    )
+    first_frame_image: Optional[str] = Field(
+        default=None,
+        description="URL or base64 data URL (data:image/jpeg;base64,...) of first frame"
+    )
+    last_frame_image: str = Field(
+        ...,
+        description="Required. URL or base64 data URL of last frame"
+    )
+    duration: int = Field(
+        default=6,
+        ge=6,
+        le=10,
+        description="Video duration in seconds (6 or 10)"
+    )
+    resolution: FL2VResolution = Field(
+        default=FL2VResolution.RES_768P,
+        description="Video resolution (768P or 1080P - 512P not supported for FL2V)"
+    )
+    prompt_optimizer: bool = Field(
+        default=True,
+        description="Auto-optimize prompt. Set False for precise control"
+    )
+    camera_commands: Optional[List[CameraCommand]] = Field(
+        default=None,
+        max_length=3,
+        description="Camera commands to append to prompt (max 3 simultaneous)"
+    )
+    
+    def get_prompt_with_commands(self) -> str:
+        """Get prompt with camera commands appended."""
+        if not self.camera_commands:
+            return self.prompt
+        commands = ",".join([cmd.value.strip("[]") for cmd in self.camera_commands])
+        return f"{self.prompt} [{commands}]"
+
+
+class FL2VGenerateResponse(BaseModel):
+    """Response from FL2V video generation task creation."""
+    
+    task_id: str
+    segment_id: str
+    status: str = "submitted"
+    model: str = "MiniMax-Hailuo-02"
 ```
 
 ---
@@ -852,8 +970,77 @@ class MinimaxClient:
                 raise Exception(f"Unexpected TTS response: {data}")
     
     # -------------------------------------------------------------------------
-    # Video Operations
+    # Video Operations - First & Last Frame Video Generation (FL2V)
     # -------------------------------------------------------------------------
+    
+    async def generate_video_fl2v(
+        self,
+        prompt: str,
+        last_frame_image: str,
+        first_frame_image: Optional[str] = None,
+        model: str = "MiniMax-Hailuo-02",
+        duration: int = 6,
+        resolution: str = "768P",
+        prompt_optimizer: bool = True,
+        callback_url: Optional[str] = None,
+    ) -> str:
+        """Start First & Last Frame video generation task (FL2V).
+        
+        Args:
+            prompt: Video generation prompt (max 2000 chars). 
+                   Can include camera commands like [Zoom in], [Pan left], etc.
+            last_frame_image: Required. URL or base64 data URL of last frame
+                             Format: URL or "data:image/jpeg;base64,..."
+            first_frame_image: Optional. URL or base64 data URL of first frame
+            model: Video model - must be "MiniMax-Hailuo-02" for FL2V
+            duration: Video duration in seconds (6 or 10 for FL2V)
+            resolution: Video resolution (768P or 1080P - 512P NOT supported for FL2V)
+            prompt_optimizer: Auto-optimize prompt (default True, set False for precise control)
+            callback_url: Optional webhook URL for async status updates
+            
+        Returns:
+            task_id for polling
+            
+        Image Requirements:
+            - Formats: JPG, JPEG, PNG, WebP
+            - Size: < 20MB
+            - Dimensions: Short side > 300px, Aspect ratio 2:5 to 5:2
+            - Note: Video resolution follows first_frame_image
+            - Note: last_frame_image will be cropped to match first_frame dimensions
+            
+        Camera Commands (embed in prompt with [command] syntax):
+            - Truck: [Truck left], [Truck right]
+            - Pan: [Pan left], [Pan right]  
+            - Push: [Push in], [Pull out]
+            - Pedestal: [Pedestal up], [Pedestal down]
+            - Tilt: [Tilt up], [Tilt down]
+            - Zoom: [Zoom in], [Zoom out]
+            - Shake: [Shake]
+            - Follow: [Tracking shot]
+            - Static: [Static shot]
+            
+            Combine up to 3: [Pan left,Pedestal up]
+            Sequential: "...[Push in], then...[Pull out]"
+        """
+        payload = {
+            "model": model,
+            "last_frame_image": last_frame_image,  # Required for FL2V
+            "duration": duration,
+            "resolution": resolution,
+            "prompt_optimizer": prompt_optimizer,
+        }
+        
+        if prompt:
+            payload["prompt"] = prompt[:2000]  # Max 2000 characters
+        
+        if first_frame_image:
+            payload["first_frame_image"] = first_frame_image
+        
+        if callback_url:
+            payload["callback_url"] = callback_url
+        
+        data = await self._request("POST", "/video_generation", json=payload)
+        return data["task_id"]
     
     async def generate_video(
         self,

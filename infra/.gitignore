@@ -1,0 +1,19 @@
+# ============================================================================
+# .gitignore for Infrastructure
+# ============================================================================
+
+# Parameter files with secrets (NEVER commit these!)
+parameters/*.parameters.json
+!parameters/*.parameters.example.json
+
+# Terraform state (if using Terraform instead)
+*.tfstate
+*.tfstate.*
+.terraform/
+
+# Azure CLI cache
+.azure/
+
+# Temporary files
+*.tmp
+*.log

@@ -16,15 +16,17 @@
 - Generowanie wideo AI (MiniMax Hailuo)
 - Klonowanie głosu i syntezę mowy (MiniMax TTS)
 - Inteligentne planowanie narracji (OpenAI Agents SDK)
-- Human-in-the-Loop workflow dla kontroli jakości
+- Human-in-the-Loop workflow dla kontroli jakości na każdym
+- Sklejanie 6 lub 10-sekundowych klipów generowanych przez MiniMax
+- Approval użytkownika przed każdą kolejną iteracją klipu mający na celu kontrolę poprawności i zachowanie spójnego całościowego video  
 
-**Cel produktu:** Umożliwić użytkownikom bez umiejętności technicznych tworzenie wysokiej jakości krótkich filmów z kontrolą nad każdym etapem procesu.
+**Cel produktu:** Umożliwić użytkownikom tworzenie wysokiej jakości filmów AI z kontrolą nad każdym etapem procesu.
 
 ### 1.2 Jaki ból rozwiązujemy?
 
 | Problem | Rozwiązanie |
 |---------|-------------|
-| Tworzenie spójnych segmentów wideo jest czasochłonne | AI automatycznie planuje i generuje segmenty z zachowaniem ciągłości |
+| Tworzenie spójnych segmentów wideo jest czasochłonne | OpenAI Supervisotr Agent automatycznie planuje i generuje prompty do segmentów z zachowaniem ciągłości |
 | Brak kontroli nad jakością automatycznego generowania | Human-in-the-Loop pozwala zatwierdzać każdy segment |
 | Złożoność techniczna integracji wielu narzędzi AI | Jedna zunifikowana aplikacja z intuicyjnym UI |
 | Trudność w zachowaniu spójności narracyjnej | Supervisor Agent planuje całą narrację przed generowaniem |
@@ -35,24 +37,24 @@
 ## 2. Stakeholders & Target Users
 
 ### 2.1 Primary Users
-- **Content Creators** - twórcy treści video na social media
-- **Marketing Teams** - zespoły marketingowe potrzebujące szybkich materiałów video
-- **Educators** - nauczyciele tworzący materiały edukacyjne
-- **Small Business Owners** - właściciele firm potrzebujący materiałów promocyjnych
+- **Entertainment Creators** - twórcy viralowych treści rozrywkowych (TikTok, Reels, Shorts)
+- **Storytellers** - osoby wizualizujące opowiadania, historyjki i scenariusze
+- **Social Media Users** - osoby tworzące content dla zabawy i znajomych
+- **Streamers & YouTubers** - twórcy potrzebujący insertów i krótkich form wideo
 
 ### 2.2 User Personas
 
-#### Persona 1: Marketing Maria
-- **Rola:** Marketing Manager w średniej firmie
-- **Cel:** Szybkie tworzenie krótkich filmów promocyjnych
-- **Ból:** Brak budżetu na profesjonalną produkcję video
-- **Oczekiwanie:** Intuicyjna aplikacja, kontrola nad wynikiem, profesjonalna jakość
+#### Persona 1: Storyteller Sarah
+- **Rola:** Hobbyist Writer / Storyteller
+- **Cel:** Wizualizacja własnych opowiadań i creepypast na YouTube
+- **Ból:** Brak umiejętności animacji/wideo do zilustrowania historii
+- **Oczekiwanie:** Spójność postaci i klimatu, łatwe dodawanie narracji
 
 #### Persona 2: Creator Chris
 - **Rola:** Content Creator na TikTok/YouTube Shorts
-- **Cel:** Generowanie unikalnych krótkich filmów
-- **Ból:** Czasochłonność manualnej edycji
-- **Oczekiwanie:** Szybkość, kreatywne możliwości, własny głos
+- **Cel:** Generowanie viralowych, zabawnych filmów rozrywkowych
+- **Ból:** Wypalenie i czasochłonność manualnej edycji
+- **Oczekiwanie:** Szybkość, kreatywne możliwości, wysoki potencjał viralowy
 
 ---
 
@@ -118,10 +120,29 @@
 |----|-------------|----------|
 | FR-GEN-01 | System musi klonować głos z przesłanego audio | P0 |
 | FR-GEN-02 | System musi generować audio narracji z tekstu | P0 |
-| FR-GEN-03 | System musi generować wideo z first/last frame | P0 |
+| FR-GEN-03 | System musi generować wideo z first/last frame (FL2V) | P0 |
 | FR-GEN-04 | System musi wyświetlać status generowania | P0 |
 | FR-GEN-05 | System musi obsługiwać async polling statusu | P0 |
 | FR-GEN-06 | System musi obsługiwać błędy generowania i retry | P1 |
+| FR-GEN-07 | System musi akceptować URL lub Base64 dla first_frame_image | P0 |
+| FR-GEN-08 | System musi akceptować URL lub Base64 dla last_frame_image | P0 |
+| FR-GEN-09 | System musi wspierać komendy ruchu kamery w promptach ([Zoom in], [Pan left], etc.) | P1 |
+| FR-GEN-10 | System musi wspierać rozdzielczości 768P i 1080P dla FL2V | P0 |
+| FR-GEN-11 | System musi wspierać duration 6s i 10s dla FL2V | P0 |
+| FR-GEN-12 | System musi obsługiwać prompt_optimizer flag dla precyzyjnej kontroli | P1 |
+
+### 3.6.1 First & Last Frame Video Generation (FR-FL2V)
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-FL2V-01 | Użytkownik może uploadować first_frame_image (JPG, PNG, WEBP) | P0 |
+| FR-FL2V-02 | Użytkownik może uploadować last_frame_image (JPG, PNG, WEBP) | P0 |
+| FR-FL2V-03 | System musi walidować: short side > 300px, aspect ratio 2:5 - 5:2 | P0 |
+| FR-FL2V-04 | System musi walidować rozmiar pliku < 20MB | P0 |
+| FR-FL2V-05 | Rozdzielczość wideo jest determinowana przez first_frame_image | P0 |
+| FR-FL2V-06 | Last frame jest automatycznie przycinany do rozmiaru first frame | P0 |
+| FR-FL2V-07 | System używa modelu MiniMax-Hailuo-02 dla FL2V | P0 |
+| FR-FL2V-08 | Prompt może zawierać do 2000 znaków | P0 |
 
 ### 3.7 Finalization (FR-FINAL)
 
@@ -416,10 +437,12 @@ Dla jasności, poniższe funkcjonalności **NIE** są częścią tego PRD:
 
 ### A. Glossary
 - **HITL:** Human-in-the-Loop - proces z udziałem człowieka
-- **FL2V:** First-Last-Frame-to-Video - technika generowania wideo
+- **FL2V:** First-Last-Frame-to-Video - technika generowania wideo z użyciem pierwszej i ostatniej klatki
 - **Voice Cloning:** Klonowanie głosu z próbki audio
 - **TTS:** Text-to-Speech - synteza mowy z tekstu
 - **Segment:** Pojedynczy fragment wideo (6 lub 10 sekund)
+- **Camera Commands:** Komendy sterowania kamerą w formacie [command] np. [Zoom in], [Pan left], [Push in]
+- **Prompt Optimizer:** Funkcja automatycznej optymalizacji promptu przez MiniMax API
 
 ### B. Related Documents
 - [01-MVP-DEFINITION.md](./01-MVP-DEFINITION.md)

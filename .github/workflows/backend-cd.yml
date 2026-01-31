@@ -1,0 +1,71 @@
+# AI Video Creator - Backend CD Pipeline
+# Deploys backend to Azure App Service on merge to main
+
+name: Backend CD
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ai-video-creator-backend/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+env:
+  AZURE_WEBAPP_NAME: app-aivideocreator-${{ github.event.inputs.environment || 'dev' }}
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  deploy:
+    name: Deploy to Azure
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.event.inputs.environment || 'dev' }}
+      url: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Create deployment package
+        run: |
+          cd ai-video-creator-backend
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -t .python_packages/lib/site-packages
+          zip -r ../deploy.zip . -x "*.pyc" -x "__pycache__/*" -x ".git/*" -x "tests/*"
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          package: deploy.zip
+
+      - name: Run database migrations
+        uses: azure/CLI@v2
+        with:
+          inlineScript: |
+            az webapp config set --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group rg-aivideocreator-${{ github.event.inputs.environment || 'dev' }} --startup-file "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+      - name: Verify deployment
+        run: |
+          sleep 30
+          curl -f https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/health || exit 1

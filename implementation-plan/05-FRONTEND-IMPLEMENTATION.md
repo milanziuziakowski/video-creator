@@ -98,7 +98,7 @@ export const msalConfig: Configuration = {
     clientId,
     authority: `https://login.microsoftonline.com/${tenantId}`,
     redirectUri,
-    postLogoutRedirectUri: redirectUri,
+    postLogoutRe+-directUri: redirectUri,
     navigateToLoginRequestUrl: true,
   },
   cache: {
@@ -450,6 +450,74 @@ export interface GenerationStatus {
   downloadUrl?: string;
   error?: string;
   progress?: number;
+}
+
+// First & Last Frame Video Generation (FL2V) Types
+export type FL2VResolution = "768P" | "1080P";
+
+export type CameraCommand =
+  | "[Truck left]"
+  | "[Truck right]"
+  | "[Pan left]"
+  | "[Pan right]"
+  | "[Push in]"
+  | "[Pull out]"
+  | "[Pedestal up]"
+  | "[Pedestal down]"
+  | "[Tilt up]"
+  | "[Tilt down]"
+  | "[Zoom in]"
+  | "[Zoom out]"
+  | "[Shake]"
+  | "[Tracking shot]"
+  | "[Static shot]";
+
+export interface FL2VGenerateRequest {
+  segmentId: string;
+  prompt: string;
+  firstFrameImage?: string;  // URL or base64 data URL
+  lastFrameImage: string;    // Required - URL or base64 data URL
+  duration: 6 | 10;
+  resolution: FL2VResolution;
+  promptOptimizer: boolean;
+  cameraCommands?: CameraCommand[];
+}
+
+export interface FL2VGenerateResponse {
+  taskId: string;
+  segmentId: string;
+  status: string;
+  model: string;
+}
+
+// Camera command helpers
+export const CAMERA_COMMANDS: { value: CameraCommand; label: string; category: string }[] = [
+  { value: "[Truck left]", label: "Truck Left", category: "Movement" },
+  { value: "[Truck right]", label: "Truck Right", category: "Movement" },
+  { value: "[Pan left]", label: "Pan Left", category: "Pan" },
+  { value: "[Pan right]", label: "Pan Right", category: "Pan" },
+  { value: "[Push in]", label: "Push In", category: "Push" },
+  { value: "[Pull out]", label: "Pull Out", category: "Push" },
+  { value: "[Pedestal up]", label: "Pedestal Up", category: "Pedestal" },
+  { value: "[Pedestal down]", label: "Pedestal Down", category: "Pedestal" },
+  { value: "[Tilt up]", label: "Tilt Up", category: "Tilt" },
+  { value: "[Tilt down]", label: "Tilt Down", category: "Tilt" },
+  { value: "[Zoom in]", label: "Zoom In", category: "Zoom" },
+  { value: "[Zoom out]", label: "Zoom Out", category: "Zoom" },
+  { value: "[Shake]", label: "Shake", category: "Effect" },
+  { value: "[Tracking shot]", label: "Tracking Shot", category: "Follow" },
+  { value: "[Static shot]", label: "Static Shot", category: "Static" },
+];
+
+export function buildPromptWithCameraCommands(
+  prompt: string,
+  commands: CameraCommand[]
+): string {
+  if (!commands || commands.length === 0) return prompt;
+  // Max 3 simultaneous commands
+  const validCommands = commands.slice(0, 3);
+  const commandStr = validCommands.map(c => c.replace(/[\[\]]/g, "")).join(",");
+  return `${prompt} [${commandStr}]`;
 }
 ```
 
@@ -1285,6 +1353,435 @@ export function FileUploader({
       )}
 
       {error && <p className="text-sm text-red-500">{error}</p>}
+    </div>
+  );
+}
+```
+
+### 6.7 Dual Frame Uploader Component (src/components/upload/DualFrameUploader.tsx)
+
+```tsx
+/**
+ * DualFrameUploader - Upload both first and last frame images for FL2V
+ * 
+ * This component supports the MiniMax First & Last Frame Video Generation API.
+ * 
+ * Image Requirements (per MiniMax API):
+ * - Formats: JPG, JPEG, PNG, WebP
+ * - Size: < 20MB each
+ * - Dimensions: Short side > 300px, Aspect ratio 2:5 to 5:2
+ * - Video resolution follows first_frame_image
+ * - last_frame_image will be cropped to match first_frame dimensions
+ */
+import { useCallback, useState } from "react";
+import { useDropzone } from "react-dropzone";
+import { 
+  CloudArrowUpIcon, 
+  XMarkIcon,
+  ArrowRightIcon,
+  ExclamationTriangleIcon 
+} from "@heroicons/react/24/outline";
+
+interface FrameImage {
+  file: File;
+  preview: string;
+  dataUrl: string; // base64 data URL for API submission
+}
+
+interface DualFrameUploaderProps {
+  onFramesChange: (frames: { firstFrame?: FrameImage; lastFrame: FrameImage }) => void;
+  isUploading?: boolean;
+  existingFirstFrame?: string;
+  existingLastFrame?: string;
+  showFirstFrame?: boolean; // If false, only show last frame upload
+}
+
+// Image validation constants (MiniMax API requirements)
+const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+const ACCEPTED_FORMATS = {
+  "image/jpeg": [".jpg", ".jpeg"],
+  "image/png": [".png"],
+  "image/webp": [".webp"],
+};
+const MIN_SHORT_SIDE = 300;
+const MIN_ASPECT_RATIO = 2 / 5; // 2:5
+const MAX_ASPECT_RATIO = 5 / 2; // 5:2
+
+interface ValidationResult {
+  valid: boolean;
+  error?: string;
+}
+
+async function validateImage(file: File): Promise<ValidationResult> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const { width, height } = img;
+      const shortSide = Math.min(width, height);
+      const aspectRatio = width / height;
+      
+      if (shortSide < MIN_SHORT_SIDE) {
+        resolve({ 
+          valid: false, 
+          error: `Short side must be > ${MIN_SHORT_SIDE}px (got ${shortSide}px)` 
+        });
+        return;
+      }
+      
+      if (aspectRatio < MIN_ASPECT_RATIO || aspectRatio > MAX_ASPECT_RATIO) {
+        resolve({ 
+          valid: false, 
+          error: `Aspect ratio must be between 2:5 and 5:2 (got ${aspectRatio.toFixed(2)})` 
+        });
+        return;
+      }
+      
+      resolve({ valid: true });
+    };
+    img.onerror = () => resolve({ valid: false, error: "Failed to load image" });
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+export function DualFrameUploader({
+  onFramesChange,
+  isUploading = false,
+  existingFirstFrame,
+  existingLastFrame,
+  showFirstFrame = true,
+}: DualFrameUploaderProps) {
+  const [firstFrame, setFirstFrame] = useState<FrameImage | null>(null);
+  const [lastFrame, setLastFrame] = useState<FrameImage | null>(null);
+  const [errors, setErrors] = useState<{ first?: string; last?: string }>({});
+
+  const processFile = useCallback(async (
+    file: File, 
+    type: "first" | "last"
+  ): Promise<FrameImage | null> => {
+    // Validate image dimensions
+    const validation = await validateImage(file);
+    if (!validation.valid) {
+      setErrors(prev => ({ ...prev, [type]: validation.error }));
+      return null;
+    }
+    
+    // Convert to data URL for API submission
+    const dataUrl = await fileToDataUrl(file);
+    const preview = URL.createObjectURL(file);
+    
+    return { file, preview, dataUrl };
+  }, []);
+
+  const handleFirstFrameDrop = useCallback(async (acceptedFiles: File[]) => {
+    if (acceptedFiles.length === 0) return;
+    
+    setErrors(prev => ({ ...prev, first: undefined }));
+    const frame = await processFile(acceptedFiles[0], "first");
+    
+    if (frame) {
+      setFirstFrame(frame);
+      if (lastFrame) {
+        onFramesChange({ firstFrame: frame, lastFrame });
+      }
+    }
+  }, [processFile, lastFrame, onFramesChange]);
+
+  const handleLastFrameDrop = useCallback(async (acceptedFiles: File[]) => {
+    if (acceptedFiles.length === 0) return;
+    
+    setErrors(prev => ({ ...prev, last: undefined }));
+    const frame = await processFile(acceptedFiles[0], "last");
+    
+    if (frame) {
+      setLastFrame(frame);
+      onFramesChange({ 
+        firstFrame: firstFrame || undefined, 
+        lastFrame: frame 
+      });
+    }
+  }, [processFile, firstFrame, onFramesChange]);
+
+  const clearFirstFrame = useCallback(() => {
+    if (firstFrame?.preview) URL.revokeObjectURL(firstFrame.preview);
+    setFirstFrame(null);
+    setErrors(prev => ({ ...prev, first: undefined }));
+  }, [firstFrame]);
+
+  const clearLastFrame = useCallback(() => {
+    if (lastFrame?.preview) URL.revokeObjectURL(lastFrame.preview);
+    setLastFrame(null);
+    setErrors(prev => ({ ...prev, last: undefined }));
+  }, [lastFrame]);
+
+  const firstFrameDropzone = useDropzone({
+    onDrop: handleFirstFrameDrop,
+    accept: ACCEPTED_FORMATS,
+    maxSize: MAX_FILE_SIZE,
+    multiple: false,
+    disabled: isUploading,
+  });
+
+  const lastFrameDropzone = useDropzone({
+    onDrop: handleLastFrameDrop,
+    accept: ACCEPTED_FORMATS,
+    maxSize: MAX_FILE_SIZE,
+    multiple: false,
+    disabled: isUploading,
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 text-sm text-gray-400">
+        <span>First & Last Frame Video Generation (FL2V)</span>
+        <span className="text-xs bg-primary-600/20 text-primary-400 px-2 py-0.5 rounded">
+          MiniMax-Hailuo-02
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+        {/* First Frame Upload (Optional) */}
+        {showFirstFrame && (
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-300">
+              First Frame <span className="text-gray-500">(Optional)</span>
+            </label>
+            
+            {firstFrame ? (
+              <div className="relative rounded-lg overflow-hidden aspect-video bg-dark-300">
+                <img 
+                  src={firstFrame.preview} 
+                  alt="First frame" 
+                  className="w-full h-full object-cover" 
+                />
+                <button
+                  onClick={clearFirstFrame}
+                  className="absolute top-2 right-2 p-1 rounded-full bg-black/50 
+                             text-white hover:bg-black/70 transition-colors"
+                >
+                  <XMarkIcon className="h-5 w-5" />
+                </button>
+                <div className="absolute bottom-2 left-2 text-xs bg-black/50 px-2 py-1 rounded text-white">
+                  Video resolution follows this frame
+                </div>
+              </div>
+            ) : (
+              <div
+                {...firstFrameDropzone.getRootProps()}
+                className={`relative flex flex-col items-center justify-center aspect-video
+                            rounded-lg border-2 border-dashed transition-colors cursor-pointer
+                            ${firstFrameDropzone.isDragActive ? "border-primary-500 bg-primary-500/10" : "border-gray-600 hover:border-gray-500"}
+                            ${errors.first ? "border-red-500" : ""}`}
+              >
+                <input {...firstFrameDropzone.getInputProps()} />
+                <CloudArrowUpIcon className="h-8 w-8 text-gray-400 mb-2" />
+                <span className="text-sm text-gray-400">First Frame</span>
+                <span className="text-xs text-gray-500">Sets video resolution</span>
+              </div>
+            )}
+            
+            {errors.first && (
+              <p className="text-sm text-red-500 flex items-center gap-1">
+                <ExclamationTriangleIcon className="h-4 w-4" />
+                {errors.first}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Arrow between frames */}
+        {showFirstFrame && (
+          <div className="hidden md:flex items-center justify-center">
+            <ArrowRightIcon className="h-8 w-8 text-gray-500" />
+          </div>
+        )}
+
+        {/* Last Frame Upload (Required) */}
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-300">
+            Last Frame <span className="text-red-400">*</span>
+          </label>
+          
+          {lastFrame ? (
+            <div className="relative rounded-lg overflow-hidden aspect-video bg-dark-300">
+              <img 
+                src={lastFrame.preview} 
+                alt="Last frame" 
+                className="w-full h-full object-cover" 
+              />
+              <button
+                onClick={clearLastFrame}
+                className="absolute top-2 right-2 p-1 rounded-full bg-black/50 
+                           text-white hover:bg-black/70 transition-colors"
+              >
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+              <div className="absolute bottom-2 left-2 text-xs bg-black/50 px-2 py-1 rounded text-white">
+                Will be cropped to match first frame
+              </div>
+            </div>
+          ) : (
+            <div
+              {...lastFrameDropzone.getRootProps()}
+              className={`relative flex flex-col items-center justify-center aspect-video
+                          rounded-lg border-2 border-dashed transition-colors cursor-pointer
+                          ${lastFrameDropzone.isDragActive ? "border-primary-500 bg-primary-500/10" : "border-gray-600 hover:border-gray-500"}
+                          ${errors.last ? "border-red-500" : ""}`}
+            >
+              <input {...lastFrameDropzone.getInputProps()} />
+              <CloudArrowUpIcon className="h-8 w-8 text-gray-400 mb-2" />
+              <span className="text-sm text-gray-400">Last Frame (Required)</span>
+              <span className="text-xs text-gray-500">Target end of video</span>
+            </div>
+          )}
+          
+          {errors.last && (
+            <p className="text-sm text-red-500 flex items-center gap-1">
+              <ExclamationTriangleIcon className="h-4 w-4" />
+              {errors.last}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Requirements hint */}
+      <div className="text-xs text-gray-500 space-y-1">
+        <p>• Formats: JPG, PNG, WebP • Max size: 20MB</p>
+        <p>• Dimensions: Short side &gt; 300px, Aspect ratio 2:5 to 5:2</p>
+        <p>• Supported resolutions: 768P, 1080P (512P not supported for FL2V)</p>
+      </div>
+    </div>
+  );
+}
+```
+
+### 6.8 Camera Command Selector (src/components/generation/CameraCommandSelector.tsx)
+
+```tsx
+/**
+ * CameraCommandSelector - Select camera movement commands for FL2V prompts
+ * 
+ * MiniMax supports 15 camera commands that can be embedded in prompts.
+ * Max 3 simultaneous commands allowed.
+ */
+import { useState, useCallback } from "react";
+import { CameraCommand, CAMERA_COMMANDS } from "../../types/generation";
+import { CheckIcon, XMarkIcon } from "@heroicons/react/24/outline";
+
+interface CameraCommandSelectorProps {
+  selected: CameraCommand[];
+  onChange: (commands: CameraCommand[]) => void;
+  maxCommands?: number;
+}
+
+export function CameraCommandSelector({
+  selected,
+  onChange,
+  maxCommands = 3,
+}: CameraCommandSelectorProps) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const toggleCommand = useCallback((command: CameraCommand) => {
+    if (selected.includes(command)) {
+      onChange(selected.filter(c => c !== command));
+    } else if (selected.length < maxCommands) {
+      onChange([...selected, command]);
+    }
+  }, [selected, onChange, maxCommands]);
+
+  const removeCommand = useCallback((command: CameraCommand) => {
+    onChange(selected.filter(c => c !== command));
+  }, [selected, onChange]);
+
+  // Group commands by category
+  const groupedCommands = CAMERA_COMMANDS.reduce((acc, cmd) => {
+    if (!acc[cmd.category]) acc[cmd.category] = [];
+    acc[cmd.category].push(cmd);
+    return acc;
+  }, {} as Record<string, typeof CAMERA_COMMANDS>);
+
+  return (
+    <div className="space-y-2">
+      <label className="block text-sm font-medium text-gray-300">
+        Camera Commands <span className="text-gray-500">(max {maxCommands})</span>
+      </label>
+
+      {/* Selected commands */}
+      {selected.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {selected.map(cmd => (
+            <span
+              key={cmd}
+              className="inline-flex items-center gap-1 px-2 py-1 text-sm 
+                         bg-primary-600/20 text-primary-400 rounded"
+            >
+              {cmd.replace(/[\[\]]/g, "")}
+              <button
+                onClick={() => removeCommand(cmd)}
+                className="hover:text-primary-200"
+              >
+                <XMarkIcon className="h-4 w-4" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Command selector */}
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="text-sm text-primary-400 hover:text-primary-300"
+      >
+        {isOpen ? "Hide commands" : "Add camera command..."}
+      </button>
+
+      {isOpen && (
+        <div className="rounded-lg bg-dark-300 border border-gray-600 p-3 space-y-3">
+          {Object.entries(groupedCommands).map(([category, commands]) => (
+            <div key={category}>
+              <h4 className="text-xs font-medium text-gray-400 mb-1">{category}</h4>
+              <div className="flex flex-wrap gap-1">
+                {commands.map(({ value, label }) => {
+                  const isSelected = selected.includes(value);
+                  const isDisabled = !isSelected && selected.length >= maxCommands;
+                  
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => toggleCommand(value)}
+                      disabled={isDisabled}
+                      className={`px-2 py-1 text-xs rounded transition-colors
+                        ${isSelected 
+                          ? "bg-primary-600 text-white" 
+                          : isDisabled
+                            ? "bg-gray-700 text-gray-500 cursor-not-allowed"
+                            : "bg-dark-100 text-gray-300 hover:bg-dark-200"
+                        }`}
+                    >
+                      {isSelected && <CheckIcon className="inline h-3 w-3 mr-1" />}
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+          
+          <p className="text-xs text-gray-500">
+            Tip: Multiple commands like [Pan left,Zoom in] execute simultaneously
+          </p>
+        </div>
+      )}
     </div>
   );
 }

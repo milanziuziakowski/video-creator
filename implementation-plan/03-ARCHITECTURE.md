@@ -124,8 +124,9 @@ Nowa architektura opiera się na następujących zasadach:
 │  │                      Components                               │   │
 │  │   ┌─────────────────┐  ┌─────────────────┐  ┌─────────────┐ │   │
 │  │   │ MediaUploader   │  │ PromptEditor    │  │ VideoPlayer │ │   │
-│  │   │ - ImageUpload   │  │ - PromptCard    │  │ - Controls  │ │   │
-│  │   │ - AudioUpload   │  │ - EditModal     │  │ - Preview   │ │   │
+│  │   │ - FirstFrame    │  │ - PromptCard    │  │ - Controls  │ │   │
+│  │   │ - LastFrame     │  │ - EditModal     │  │ - Preview   │ │   │
+│  │   │ - AudioUpload   │  │ - PromptInput   │  │ - Timeline  │ │   │
 │  │   └─────────────────┘  └─────────────────┘  └─────────────┘ │   │
 │  │                                                               │   │
 │  │   ┌─────────────────┐  ┌─────────────────┐  ┌─────────────┐ │   │
@@ -182,7 +183,9 @@ frontend/
 │   │   │   ├── LoginButton.tsx
 │   │   │   └── LogoutButton.tsx
 │   │   ├── media/
-│   │   │   ├── ImageUploader.tsx
+│   │   │   ├── FirstFrameUploader.tsx
+│   │   │   ├── LastFrameUploader.tsx
+│   │   │   ├── DualFrameUploader.tsx    # Combined first+last frame upload
 │   │   │   ├── AudioUploader.tsx
 │   │   │   └── VideoPlayer.tsx
 │   │   ├── project/
@@ -289,9 +292,11 @@ frontend/
 │  │   │   └── GET    /status/{task} (poll status)                │   │
 │  │   │                                                          │   │
 │  │   └── /media                                                 │   │
-│  │       ├── POST   /upload/image  (upload first frame)         │   │
-│  │       ├── POST   /upload/audio  (upload voice sample)        │   │
-│  │       └── GET    /download/{id} (download video)             │   │
+│  │       ├── POST   /upload/first-frame   (upload first frame)  │   │
+│  │       ├── POST   /upload/last-frame    (upload last frame)   │   │
+│  │       ├── POST   /upload/frames        (upload both frames)  │   │
+│  │       ├── POST   /upload/audio         (upload voice sample) │   │
+│  │       └── GET    /download/{id}        (download video)      │   │
 │  │                                                               │   │
 │  └─────────────────────────────────────────────────────────────┘   │
 │                                                                      │
@@ -610,47 +615,170 @@ async def generate_plan(story_prompt: str, segment_count: int):
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-### 6.2 Video Generation Flow
+### 6.2 Video Generation Flow (First + Last Frame with Prompt) - FL2V API
+
+The MiniMax API supports **First & Last Frame Video Generation (FL2V)** using the
+`POST /v1/video_generation` endpoint with model `MiniMax-Hailuo-02`.
+
+#### 6.2.1 FL2V API Specification
+
+**Endpoint:** `POST https://api.minimax.io/v1/video_generation`
+
+**Authentication:** `Authorization: Bearer <API_KEY>`
+
+**Request Body:**
+```json
+{
+  "model": "MiniMax-Hailuo-02",           // Required: Only model supporting FL2V
+  "first_frame_image": "url_or_base64",   // Optional: URL or data:image/jpeg;base64,...
+  "last_frame_image": "url_or_base64",    // Required for FL2V: URL or Base64
+  "prompt": "Video description...",        // Optional: Up to 2000 characters
+  "duration": 6,                          // Optional: 6 or 10 seconds (default: 6)
+  "resolution": "768P",                   // Optional: 768P or 1080P (default: 768P)
+  "prompt_optimizer": true,               // Optional: Auto-optimize prompt (default: true)
+  "callback_url": "https://..."           // Optional: Webhook for status updates
+}
+```
+
+**Image Requirements:**
+- Formats: JPG, JPEG, PNG, WebP
+- Size: < 20MB
+- Dimensions: Short side > 300px, Aspect ratio 2:5 to 5:2
+- Resolution: Video resolution follows first_frame_image
+- Note: last_frame_image will be cropped to match first_frame_image dimensions
+
+**Camera Commands (embed in prompt):**
+```
+Supported commands (use [command] syntax):
+- Truck: [Truck left], [Truck right]
+- Pan: [Pan left], [Pan right]
+- Push: [Push in], [Pull out]
+- Pedestal: [Pedestal up], [Pedestal down]
+- Tilt: [Tilt up], [Tilt down]
+- Zoom: [Zoom in], [Zoom out]
+- Shake: [Shake]
+- Follow: [Tracking shot]
+- Static: [Static shot]
+
+Combined: [Pan left,Pedestal up] (max 3 simultaneous)
+Sequential: "...[Push in], then...[Pull out]"
+```
+
+**Response:**
+```json
+{
+  "task_id": "106916112212032",
+  "base_resp": {
+    "status_code": 0,
+    "status_msg": "success"
+  }
+}
+```
+
+#### 6.2.2 FL2V Generation Flow Diagram
 
 ```
-User uploads first_frame_image
+User uploads first_frame_image AND last_frame_image (from PC or provides URLs)
          │
          ▼
-┌─────────────────────┐
-│ 1. Upload Image     │ POST /files/upload
-│    → file_id        │
-└─────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│ 1. Validate Images                                          │
+│    - Format: JPG, JPEG, PNG, WebP                          │
+│    - Size: < 20MB each                                      │
+│    - Dimensions: Short side > 300px                         │
+│    - Aspect ratio: 2:5 to 5:2                               │
+└─────────────────────────────────────────────────────────────┘
          │
          ▼
-┌─────────────────────┐
-│ 2. Generate Video   │ POST /video_generation
-│    - prompt         │ Body: {
-│    - first_frame    │   "prompt": "...",
-│    - last_frame     │   "first_frame_image": "url/base64",
-│    - model          │   "last_frame_image": "url/base64",
-│    - duration       │   "model": "MiniMax-Hailuo-02",
-│    → task_id        │   "duration": 6,
-└─────────────────────┘   "resolution": "720P"
-         │             }
+┌─────────────────────────────────────────────────────────────┐
+│ 2. Prepare Images (choose one method)                       │
+│    Option A: Upload to get public URL                       │
+│    Option B: Convert to Base64 data URL                     │
+│    Format: data:image/jpeg;base64,<base64_data>             │
+└─────────────────────────────────────────────────────────────┘
+         │
          ▼
-┌─────────────────────┐
-│ 3. Poll Status      │ GET /query/video_generation?task_id=...
-│    (every 10s)      │
-│    → status         │ Response: {
-│    → file_id        │   "status": "Success"|"processing"|"Fail",
-└─────────────────────┘   "file_id": "..."
-         │             }
+┌─────────────────────────────────────────────────────────────┐
+│ 3. Generate Video (FL2V)       │ POST /v1/video_generation  │
+│    Parameters:                 │ Body: {                    │
+│    - model: MiniMax-Hailuo-02  │   "model": "MiniMax-Hailuo-02",│
+│    - first_frame_image (opt)   │   "first_frame_image": "...",  │
+│    - last_frame_image (req)    │   "last_frame_image": "...",   │
+│    - prompt (max 2000 chars)   │   "prompt": "A girl grows up [Zoom in]",│
+│    - duration (6 or 10 sec)    │   "duration": 6,               │
+│    - resolution (768P/1080P)   │   "resolution": "1080P",       │
+│    - prompt_optimizer          │   "prompt_optimizer": false    │
+│    → task_id                   │ }                              │
+│                                │ Note: 512P NOT supported for FL2V│
+└─────────────────────────────────────────────────────────────┘
+         │
          ▼
-┌─────────────────────┐
-│ 4. Retrieve File    │ GET /files/retrieve?file_id=...
-│    → download_url   │
-└─────────────────────┘ Response: {
-         │               "file": {"download_url": "..."}
-         ▼             }
-┌─────────────────────┐
-│ 5. Download Video   │ GET download_url
-│    → video bytes    │
-└─────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│ 4. Poll Status             │ GET /query/video_generation    │
+│    (every 10s recommended) │   ?task_id=...                 │
+│    → status                │ Response: {                    │
+│    → file_id               │   "status": "Success"|         │
+│                            │            "processing"|"Fail",│
+│                            │   "file_id": "..."             │
+│                            │ }                              │
+└─────────────────────────────────────────────────────────────┘
+         │                   
+         ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 5. Retrieve File           │ GET /files/retrieve?file_id=  │
+│    → download_url          │ Response: {                    │
+│                            │   "file": {"download_url":...} │
+│                            │ }                              │
+└─────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 6. Download Video          │ GET download_url               │
+│    → video bytes           │ (ready for concatenation)      │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 6.3 Segment Generation with Dual Frames
+
+For video continuity between segments, the system supports two modes:
+
+**Mode 1: User-Provided Frames (Manual Control)**
+- User uploads both first_frame and last_frame images from PC
+- User provides custom prompt text
+- Best for: specific scene requirements, artistic control
+
+**Mode 2: Automatic Frame Extraction (Seamless Transitions)**
+- First frame: Extracted as last frame from previous segment (FFmpeg)
+- Last frame: AI-generated based on prompt + frame designer agent
+- Best for: continuous story flow, automated workflow
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│              Segment Generation Modes                                │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │  MODE 1: Manual Dual-Frame Upload                              │ │
+│  │  ─────────────────────────────────────────────────────────────│ │
+│  │  User provides:                                                │ │
+│  │  - First frame image (from PC)                                 │ │
+│  │  - Last frame image (from PC)                                  │ │
+│  │  - Custom prompt text describing motion/transition             │ │
+│  │                                                                │ │
+│  │  Use case: Creative control, specific scene requirements       │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │  MODE 2: Automatic with AI-Generated End Frame                 │ │
+│  │  ─────────────────────────────────────────────────────────────│ │
+│  │  System provides:                                              │ │
+│  │  - First frame: Last frame of previous segment (FFmpeg)        │ │
+│  │  - Last frame: Generated description (Frame Designer Agent)    │ │
+│  │  - Prompt: AI-generated (Supervisor Agent)                     │ │
+│  │                                                                │ │
+│  │  Use case: Automated story flow, seamless transitions          │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -683,29 +811,29 @@ User uploads first_frame_image
                               │
                               ▼
                     ┌────────────────────────┐
-                    │   PLAN_READY           │◄─────────────────┐
-                    │   (awaiting approval)  │                  │
-                    └────────────────────────┘                  │
-                              │                                 │
-              ┌───────────────┴───────────────┐                │
-              ▼                               ▼                │
+                    │   PLAN_READY           │◄───────────────┐
+                    │   (awaiting approval)  │                │
+                    └────────────────────────┘                │
+                              │                               │
+              ┌───────────────┴───────────────┐               │
+              ▼                               ▼               │
     ┌──────────────────┐           ┌──────────────────┐       │
     │  PROMPT_EDITING  │───────────│  PROMPT_APPROVED │       │
     │  (user editing)  │           │                  │       │
     └──────────────────┘           └──────────────────┘       │
-                                            │                  │
-                                            ▼                  │
+                                            │                 │
+                                            ▼                 │
                                   ┌──────────────────┐        │
                                   │   GENERATING     │        │
                                   │ (video + audio)  │        │
                                   └──────────────────┘        │
-                                            │                  │
-                                            ▼                  │
+                                            │                 │
+                                            ▼                 │
                                   ┌──────────────────┐        │
                                   │ SEGMENT_READY    │        │
                                   │(awaiting review) │        │
                                   └──────────────────┘        │
-                                            │                  │
+                                            │                 │
                       ┌─────────────────────┴─────────────────┐
                       ▼                                       ▼
            ┌──────────────────┐                    ┌──────────────────┐
@@ -760,18 +888,22 @@ User uploads first_frame_image
 │   │ id (PK)       │──────────▶│ id (PK)       │                    │
 │   │ user_id (FK)  │    1:N    │ project_id(FK)│                    │
 │   │ name          │           │ index         │                    │
-│   │ story_prompt  │           │ video_prompt  │                    │
+│   │ story_prompt  │           │ video_prompt  │ ← User-editable    │
 │   │ target_dur    │           │ narration_text│                    │
 │   │ segment_len   │           │ end_frame_pr  │                    │
-│   │ segment_count │           │ first_frame   │                    │
-│   │ voice_id      │           │ last_frame    │                    │
-│   │ first_frame   │           │ video_url     │                    │
-│   │ audio_sample  │           │ audio_url     │                    │
-│   │ status        │           │ status        │                    │
-│   │ final_video   │           │ approved      │                    │
-│   │ created_at    │           │ created_at    │                    │
-│   │ updated_at    │           │ updated_at    │                    │
-│   └───────────────┘           └───────────────┘                    │
+│   │ segment_count │           │ first_frame   │ ← Can be uploaded  │
+│   │ voice_id      │           │ last_frame    │ ← Can be uploaded  │
+│   │ first_frame   │           │ first_frame_  │                    │
+│   │ audio_sample  │           │   source      │ (uploaded/extract) │
+│   │ status        │           │ last_frame_   │                    │
+│   │ final_video   │           │   source      │ (uploaded/ai_gen)  │
+│   │ created_at    │           │ video_url     │                    │
+│   │ updated_at    │           │ audio_url     │                    │
+│   └───────────────┘           │ status        │                    │
+│                               │ approved      │                    │
+│                               │ created_at    │                    │
+│                               │ updated_at    │                    │
+│                               └───────────────┘                    │
 │                                                                      │
 │   Status Enums:                                                     │
 │   - Project: created, media_uploaded, voice_cloning,                │

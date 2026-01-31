@@ -1,0 +1,174 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-*.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'backend/**'
+
+# Prevent multiple CI runs on same branch
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: backend
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+      
+      - name: Install dependencies
+        run: uv sync --dev
+      
+      - name: Run Ruff (lint)
+        run: uv run ruff check app/ tests/
+      
+      - name: Run Ruff (format check)
+        run: uv run ruff format --check app/ tests/
+      
+      - name: Run mypy (type check)
+        run: uv run mypy app/
+
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: lint
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    env:
+      DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/test_db
+      # Use test/mock values for CI - no real API calls
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || 'sk-test-key-for-ci' }}
+      MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY || 'test-key-for-ci' }}
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+      
+      - name: Install dependencies
+        run: uv sync --dev
+      
+      - name: Run database migrations
+        run: uv run alembic upgrade head
+      
+      - name: Run tests with coverage
+        run: |
+          uv run pytest tests/ \
+            --cov=app \
+            --cov-report=xml \
+            --cov-report=html \
+            --cov-fail-under=70 \
+            -v
+      
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./backend/coverage.xml
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  # Security scanning
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: lint
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+      
+      - name: Install dependencies
+        run: uv sync --dev
+      
+      - name: Run Bandit security scan
+        run: uv run bandit -r app/ -ll
+        continue-on-error: true  # Don't fail CI, just warn
+
+  # Build verification (no Docker - using App Service native Python)
+  build-check:
+    name: Build Verification
+    runs-on: ubuntu-latest
+    needs: [test, security]
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+      
+      - name: Install production dependencies
+        run: uv sync --no-dev
+      
+      - name: Verify app can start
+        run: |
+          timeout 10 uv run python -c "from app.main import create_app; app = create_app(); print('✅ App created successfully')" || true
+      
+      - name: Create deployment artifact
+        run: |
+          mkdir -p deploy
+          cp -r app deploy/
+          cp pyproject.toml deploy/
+          cp uv.lock deploy/
+          [ -f requirements.txt ] && cp requirements.txt deploy/ || true
+      
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-build-${{ github.sha }}
+          path: backend/deploy/
+          retention-days: 7

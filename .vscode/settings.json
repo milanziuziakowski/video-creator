@@ -1,48 +1,6 @@
 {
-  // Python Configuration
-  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
+  "python.defaultInterpreterPath": "${workspaceFolder}/ai-video-creator-backend/.venv/Scripts/python.exe",
   "python.terminal.activateEnvironment": true,
-  "python.terminal.activateEnvInCurrentTerminal": true,
-  
-  // Terminal Configuration
-  "terminal.integrated.env.windows": {
-    "VIRTUAL_ENV": "${workspaceFolder}/.venv"
-  },
-  
-  // Auto-activate venv in new PowerShell terminals
-  "terminal.integrated.profiles.windows": {
-    "PowerShell": {
-      "source": "PowerShell",
-      "icon": "terminal-powershell",
-      "args": [
-        "-NoExit",
-        "-Command",
-        "& '${workspaceFolder}/.venv/Scripts/Activate.ps1'"
-      ]
-    }
-  },
-  "terminal.integrated.defaultProfile.windows": "PowerShell",
-  
-  // Python Linting & Formatting
-  "python.linting.enabled": true,
-  "python.linting.pylintEnabled": false,
-  "python.formatting.provider": "none",
-  
-  // File Associations
-  "files.associations": {
-    "*.py": "python"
-  },
-  
-  // Editor Settings
-  "editor.formatOnSave": false,
-  "editor.codeActionsOnSave": {
-    "source.organizeImports": "explicit"
-  },
-  
-  // Python Testing
-  "python.testing.pytestEnabled": true,
-  "python.testing.unittestEnabled": false,
-  "python.testing.pytestArgs": [
-    "tests"
-  ]
+  "python.venvPath": "${workspaceFolder}/ai-video-creator-backend",
+  "terminal.integrated.defaultProfile.windows": "PowerShell"
 }
