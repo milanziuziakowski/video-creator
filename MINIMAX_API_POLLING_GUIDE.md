@@ -44,7 +44,7 @@ Content-Type: application/json
   "model": "MiniMax-Hailuo-2.3",
   "prompt": "A man picks up a book, then reads.",
   "duration": 6,
-  "resolution": "1080P",
+  "resolution": "720P",
   "callback_url": "https://your-domain.com/callback" 
 }
 ```
@@ -559,7 +559,7 @@ class MiniMaxVideoGenerator:
         self.headers = {"Authorization": f"Bearer {api_key}"}
     
     def submit_video(self, prompt: str, model: str = "MiniMax-Hailuo-2.3",
-                    duration: int = 6, resolution: str = "1080P") -> str:
+                    duration: int = 6, resolution: str = "720P") -> str:
         """Submit video generation task."""
         url = f"{self.BASE_URL}/v1/video_generation"
         
