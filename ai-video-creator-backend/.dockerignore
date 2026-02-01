@@ -34,9 +34,15 @@ ENV/
 # Test/Coverage
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
 .tox/
 .nox/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.cache
+.webassets-cache
 
 # Environment files
 .env
