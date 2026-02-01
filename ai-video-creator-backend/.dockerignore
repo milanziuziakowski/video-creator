@@ -51,11 +51,14 @@ logs/
 *.db
 *.sqlite3
 
-# Uploads and outputs (keep directories but ignore contents)
+# Storage directories (uploads, outputs, temp)
+storage/
 uploads/*
 outputs/*
+temp/*
 !uploads/.gitkeep
 !outputs/.gitkeep
+!temp/.gitkeep
 
 # OS
 .DS_Store
