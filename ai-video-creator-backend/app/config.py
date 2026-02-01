@@ -25,9 +25,11 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
     MINIMAX_API_KEY: str = ""
 
-    # Azure Entra ID
-    AZURE_TENANT_ID: str = ""
-    AZURE_CLIENT_ID: str = ""
+    # JWT Authentication
+    # Generate a secret key with: openssl rand -hex 32
+    JWT_SECRET_KEY: str = "change-me-in-production-use-openssl-rand-hex-32"
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
 
     # Database
     DATABASE_URL: str = "sqlite+aiosqlite:///./video_creator.db"

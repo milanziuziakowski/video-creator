@@ -8,7 +8,7 @@ A FastAPI backend for creating AI-powered videos using MiniMax API, OpenAI Agent
 - 🗣️ Voice cloning and text-to-speech with MiniMax API
 - 📝 Intelligent video planning with OpenAI Agents SDK
 - 🔄 Human-in-the-loop workflow for prompt review
-- 🔐 Azure Entra ID authentication
+- 🔐 JWT-based authentication with username/password
 - 📦 PostgreSQL database with async support
 
 ## Prerequisites
@@ -68,7 +68,7 @@ ai-video-creator-backend/
 │   │   ├── deps.py       # Shared dependencies
 │   │   └── v1/           # v1 API routes
 │   ├── agents/           # OpenAI Agents SDK integration
-│   ├── auth/             # Azure Entra authentication
+│   ├── auth/             # JWT authentication
 │   ├── db/               # Database models and session
 │   ├── integrations/     # External API clients
 │   ├── models/           # Pydantic schemas
@@ -138,14 +138,15 @@ docker run -p 8000:8000 \
   -e DATABASE_URL=postgresql+asyncpg://... \
   -e MINIMAX_API_KEY=... \
   -e OPENAI_API_KEY=... \
-  -e AZURE_TENANT_ID=... \
-  -e AZURE_CLIENT_ID=... \
+  -e JWT_SECRET_KEY=your-secret-key \
   ai-video-creator-backend
 ```
 
 ## API Endpoints
 
 ### Authentication
+- `POST /api/v1/auth/token` - Login and get access token
+- `POST /api/v1/auth/register` - Register new user
 - `GET /api/v1/auth/me` - Get current user info
 
 ### Projects
@@ -184,8 +185,9 @@ docker run -p 8000:8000 \
 | MINIMAX_API_KEY | MiniMax API key | Yes |
 | MINIMAX_GROUP_ID | MiniMax group ID | Yes |
 | OPENAI_API_KEY | OpenAI API key | Yes |
-| AZURE_TENANT_ID | Azure Entra tenant ID | Yes |
-| AZURE_CLIENT_ID | Azure app client ID | Yes |
+| JWT_SECRET_KEY | Secret key for JWT tokens | Yes |
+| JWT_ALGORITHM | JWT algorithm (default: HS256) | No |
+| ACCESS_TOKEN_EXPIRE_MINUTES | Token expiration time | No |
 | CORS_ORIGINS | Allowed CORS origins | No |
 | UPLOAD_DIR | Upload directory path | No |
 | OUTPUT_DIR | Output directory path | No |

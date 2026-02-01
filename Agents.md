@@ -7,7 +7,7 @@ This file provides context and instructions for GitHub Copilot when working on t
 ## Project Overview
 
 **AI Video Creator** is a web application for generating 1-minute AI videos using:
-- **Frontend:** React 18+ with TypeScript, Tailwind CSS, MSAL (Azure Entra ID)
+- **Frontend:** React 18+ with TypeScript, Tailwind CSS, JWT Auth
 - **Backend:** Python 3.11+, FastAPI, OpenAI Agents SDK, SQLAlchemy
 - **External APIs:** MiniMax (video generation, voice cloning, TTS), OpenAI (planning)
 - **Infrastructure:** Azure App Service, Azure Static Web Apps, PostgreSQL
@@ -38,7 +38,7 @@ ai-video-creator/
 │   │   ├── agents/
 │   │   │   └── supervisor_agent.py # OpenAI Agents SDK
 │   │   ├── auth/
-│   │   │   └── azure_auth.py    # Token validation
+│   │   │   └── jwt_auth.py      # JWT token authentication
 │   │   ├── db/
 │   │   │   ├── models/          # SQLAlchemy models
 │   │   │   └── session.py       # Database session
@@ -50,7 +50,7 @@ ai-video-creator/
 ├── frontend/
 │   ├── src/
 │   │   ├── api/                 # API client & hooks
-│   │   ├── auth/                # MSAL configuration
+│   │   ├── auth/                # JWT authentication
 │   │   ├── components/          # React components
 │   │   ├── pages/               # Page components
 │   │   └── types/               # TypeScript types
@@ -328,4 +328,4 @@ test("should create project", async ({ page }) => {
 - [OpenAI Agents SDK](https://openai.github.io/openai-agents-python/) - Agent framework
 - [FastAPI Docs](https://fastapi.tiangolo.com/) - Backend framework
 - [React Query](https://tanstack.com/query) - Data fetching
-- [MSAL React](https://github.com/AzureAD/microsoft-authentication-library-for-js) - Authentication
+- [FastAPI Security Tutorial](https://fastapi.tiangolo.com/tutorial/security/oauth2-jwt/) - JWT Authentication

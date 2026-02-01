@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.db.models.user import User
+from app.auth.jwt_auth import get_password_hash, verify_password
 
 
 class UserService:
@@ -26,29 +27,43 @@ class UserService:
         result = await self.db.execute(select(User).where(User.id == user_id))
         return result.scalar_one_or_none()
 
-    async def get_by_entra_id(self, entra_id: str) -> Optional[User]:
-        """Get user by Azure Entra ID.
+    async def get_by_username(self, username: str) -> Optional[User]:
+        """Get user by username.
 
         Args:
-            entra_id: Azure Entra object ID
+            username: Username
 
         Returns:
             User if found, None otherwise
         """
-        result = await self.db.execute(select(User).where(User.entra_id == entra_id))
+        result = await self.db.execute(select(User).where(User.username == username))
+        return result.scalar_one_or_none()
+
+    async def get_by_email(self, email: str) -> Optional[User]:
+        """Get user by email.
+
+        Args:
+            email: User email
+
+        Returns:
+            User if found, None otherwise
+        """
+        result = await self.db.execute(select(User).where(User.email == email))
         return result.scalar_one_or_none()
 
     async def create_user(
         self,
-        entra_id: str,
+        username: str,
         email: str,
+        password: str,
         name: Optional[str] = None,
     ) -> User:
         """Create a new user.
 
         Args:
-            entra_id: Azure Entra object ID
+            username: Unique username
             email: User email
+            password: Plain text password (will be hashed)
             name: User display name
 
         Returns:
@@ -56,43 +71,39 @@ class UserService:
         """
         user = User(
             id=str(uuid.uuid4()),
-            entra_id=entra_id,
+            username=username,
             email=email,
-            name=name,
+            hashed_password=get_password_hash(password),
+            name=name or username,
+            is_active=True,
         )
         self.db.add(user)
         await self.db.flush()
         return user
 
-    async def get_or_create_user(
+    async def authenticate_user(
         self,
-        entra_id: str,
-        email: Optional[str],
-        name: Optional[str] = None,
-    ) -> User:
-        """Get existing user or create new one.
+        username: str,
+        password: str,
+    ) -> Optional[User]:
+        """Authenticate user with username and password.
 
         Args:
-            entra_id: Azure Entra object ID
-            email: User email
-            name: User display name
+            username: Username
+            password: Plain text password
 
         Returns:
-            User (existing or newly created)
+            User if authentication successful, None otherwise
         """
-        user = await self.get_by_entra_id(entra_id)
-
+        user = await self.get_by_username(username)
+        
         if user is None:
-            user = await self.create_user(
-                entra_id=entra_id,
-                email=email or f"{entra_id}@unknown.local",
-                name=name,
-            )
-
-        # Update user info if changed
-        if user.email != email and email:
-            user.email = email
-        if user.name != name and name:
-            user.name = name
-
+            return None
+            
+        if not verify_password(password, user.hashed_password):
+            return None
+            
+        if not user.is_active:
+            return None
+            
         return user

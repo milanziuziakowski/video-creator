@@ -1,39 +1,37 @@
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import {
-  useIsAuthenticated,
-  useMsal,
-  AuthenticatedTemplate,
-  UnauthenticatedTemplate,
-} from '@azure/msal-react';
-import { InteractionStatus } from '@azure/msal-browser';
+import { getStoredToken } from './authConfig';
 
 interface AuthGuardProps {
   children: ReactNode;
 }
 
 export function AuthGuard({ children }: AuthGuardProps) {
-  const isAuthenticated = useIsAuthenticated();
-  const { inProgress } = useMsal();
+  const [isChecking, setIsChecking] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const location = useLocation();
 
-  if (inProgress !== InteractionStatus.None) {
+  useEffect(() => {
+    // Check if token exists
+    const token = getStoredToken();
+    setIsAuthenticated(!!token);
+    setIsChecking(false);
+  }, []);
+
+  if (isChecking) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
           <div className="mb-4 h-12 w-12 animate-spin rounded-full border-4 border-blue-600 border-t-transparent mx-auto" />
-          <p className="text-gray-600">Authenticating...</p>
+          <p className="text-gray-600">Loading...</p>
         </div>
       </div>
     );
   }
 
-  return (
-    <>
-      <AuthenticatedTemplate>{children}</AuthenticatedTemplate>
-      <UnauthenticatedTemplate>
-        <Navigate to="/login" state={{ from: location }} replace />
-      </UnauthenticatedTemplate>
-    </>
-  );
+  if (!isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  return <>{children}</>;
 }

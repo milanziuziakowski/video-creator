@@ -2,10 +2,10 @@
 
 from typing import AsyncGenerator
 
-from fastapi import Depends
+from fastapi import Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.azure_auth import get_current_user_token, TokenPayload
+from app.auth.jwt_auth import get_current_user_token, TokenData
 from app.db.session import get_db_session
 from app.db.models.user import User
 from app.services.user_service import UserService
@@ -18,19 +18,28 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 
 async def get_current_user(
-    token: TokenPayload = Depends(get_current_user_token),
+    token: TokenData = Depends(get_current_user_token),
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    """Get or create user from Azure token.
+    """Get current user from JWT token.
 
-    This automatically creates a user record on first login.
+    This validates the token and retrieves the user from the database.
     """
     service = UserService(db)
 
-    user = await service.get_or_create_user(
-        entra_id=token.oid,
-        email=token.email or token.preferred_username,
-        name=token.name,
-    )
+    user = await service.get_by_username(token.username)
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Inactive user",
+        )
 
     return user

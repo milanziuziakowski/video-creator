@@ -1,3 +1,10 @@
 export { AuthGuard } from './AuthGuard';
 export { useAuth } from './useAuth';
-export { msalConfig, loginRequest, apiRequest } from './msalConfig';
+export {
+  getStoredToken,
+  setStoredToken,
+  clearStoredToken,
+  isAuthenticated,
+  TOKEN_STORAGE_KEY,
+  API_BASE_URL,
+} from './authConfig';

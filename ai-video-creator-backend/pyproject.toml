@@ -19,7 +19,8 @@ dependencies = [
     "aiofiles>=24.1.0",
     "openai-agents>=0.0.10",
     "python-multipart>=0.0.17",
-    "python-jose[cryptography]>=3.3.0",
+    "pyjwt>=2.8.0",
+    "pwdlib[argon2]>=0.2.0",
 ]
 
 [project.optional-dependencies]

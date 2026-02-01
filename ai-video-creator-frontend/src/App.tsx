@@ -1,7 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { useIsAuthenticated } from '@azure/msal-react';
 
 import { AuthGuard } from './auth/AuthGuard';
+import { getStoredToken } from './auth';
 import { Layout } from './components/Layout';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -10,7 +10,7 @@ import { NewProjectPage } from './pages/NewProjectPage';
 import { ProjectDetailPage } from './pages/ProjectDetailPage';
 
 function App() {
-  const isAuthenticated = useIsAuthenticated();
+  const isAuthenticated = !!getStoredToken();
 
   return (
     <Routes>

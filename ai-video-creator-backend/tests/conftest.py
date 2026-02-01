@@ -113,8 +113,10 @@ def test_user() -> User:
     return User(
         id="test-user-id",
         email="test@example.com",
+        username="testuser",
         name="Test User",
-        entra_id="azure-oid-123",
+        hashed_password="$argon2id$v=19$m=65536,t=3,p=4$test$hashvalue",  # Dummy hash
+        is_active=True,
         created_at=now,
         updated_at=now,
     )

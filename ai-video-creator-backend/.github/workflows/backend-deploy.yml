@@ -135,8 +135,7 @@ jobs:
               {"name": "OPENAI_API_KEY", "value": "${{ secrets.OPENAI_API_KEY }}", "slotSetting": false},
               {"name": "MINIMAX_API_KEY", "value": "${{ secrets.MINIMAX_API_KEY }}", "slotSetting": false},
               {"name": "DATABASE_URL", "value": "${{ secrets.AZURE_DB_CONNECTION_STRING }}", "slotSetting": false},
-              {"name": "AZURE_TENANT_ID", "value": "${{ secrets.AZURE_TENANT_ID }}", "slotSetting": false},
-              {"name": "AZURE_CLIENT_ID", "value": "${{ secrets.AZURE_CLIENT_ID }}", "slotSetting": false}
+              {"name": "JWT_SECRET_KEY", "value": "${{ secrets.JWT_SECRET_KEY }}", "slotSetting": false}
             ]
 
       - name: Logout from Azure
