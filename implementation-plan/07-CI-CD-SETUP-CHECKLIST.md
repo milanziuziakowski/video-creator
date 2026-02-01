@@ -148,6 +148,25 @@ git push origin main
 
 ---
 
+## 🌍 Step 6: Create GitHub Environments
+
+**IMPORTANT:** Your workflows reference GitHub Environments. You must create them!
+
+1. Go to: **Repository** → **Settings** → **Environments**
+2. Create these environments:
+
+| Environment | Purpose | Protection Rules |
+|-------------|---------|------------------|
+| `dev` | Development testing | None |
+| `staging` | Pre-production (optional) | None |
+| `prod` | Production | Required reviewers (recommended) |
+
+3. For each environment, add **environment secrets** and **variables**
+
+📖 **See [09-GITHUB-ENVIRONMENTS-SETUP.md](./09-GITHUB-ENVIRONMENTS-SETUP.md) for complete setup guide**
+
+---
+
 ## 📈 Monitoring Your Pipelines
 
 ### View Workflow Runs:

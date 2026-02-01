@@ -130,6 +130,7 @@
 - [ ] Wszystkie user stories zaimplementowane i przetestowane
 - [ ] Testy E2E przechodzą pomyślnie
 - [ ] CI/CD pipeline działa
+- [ ] GitHub Environments skonfigurowane (dev, prod)
 - [ ] Dokumentacja API dostępna
 - [ ] Deploy na Azure działa
 - [ ] Code review zakończony

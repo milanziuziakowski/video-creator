@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { Project, ProjectStatus } from '../types';
+import { getMediaUrl } from '../api';
 
 interface ProjectCardProps {
   project: Project;
@@ -62,7 +63,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
         {project.firstFrameUrl && (
           <div className="mt-4">
             <img
-              src={project.firstFrameUrl}
+              src={getMediaUrl(project.firstFrameUrl)!}
               alt="First frame"
               className="w-full h-32 object-cover rounded-md"
             />

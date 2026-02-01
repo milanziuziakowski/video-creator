@@ -71,8 +71,7 @@ export type SegmentStatus =
   | 'pending'
   | 'prompt_ready'
   | 'approved'
-  | 'generating_video'
-  | 'generating_audio'
+  | 'generating'
   | 'generated'
   | 'segment_approved'
   | 'failed';
@@ -107,4 +106,30 @@ export interface GenerationStatus {
   progress: number | null;
   fileId: string | null;
   errorMessage: string | null;
+}
+
+// Voice types for saved cloned voices
+export interface Voice {
+  id: string;
+  voiceId: string;
+  name: string;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VoiceListResponse {
+  voices: Voice[];
+  total: number;
+}
+
+export interface VoiceCreate {
+  voiceId: string;
+  name: string;
+  description?: string;
+}
+
+export interface AssignVoiceRequest {
+  projectId: string;
+  voiceId: string;
 }

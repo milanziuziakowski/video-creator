@@ -10,6 +10,10 @@ import type {
   VideoPlan,
   GeneratePlanRequest,
   GenerationStatus,
+  Voice,
+  VoiceListResponse,
+  VoiceCreate,
+  AssignVoiceRequest,
 } from '../types';
 
 // Projects
@@ -196,6 +200,22 @@ export function useRegenerateSegment() {
   });
 }
 
+export function useExtractLastFrame() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (segmentId: string) => {
+      const { data } = await apiClient.post<Segment>(
+        `/segments/${segmentId}/extract-last-frame`
+      );
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['segments'] });
+      queryClient.setQueryData(['segments', 'detail', data.id], data);
+    },
+  });
+}
+
 // Generation
 export function useGeneratePlan() {
   const queryClient = useQueryClient();
@@ -257,6 +277,22 @@ export function useGenerateSegment() {
   });
 }
 
+export function useCheckSegmentComplete() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (segmentId: string) => {
+      const { data } = await apiClient.post<Segment>(
+        `/segments/${segmentId}/check-complete`
+      );
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(['segments', data.id], data);
+      queryClient.invalidateQueries({ queryKey: ['segments'] });
+    },
+  });
+}
+
 export function useGenerationStatus(taskId: string | null, enabled = true) {
   return useQuery({
     queryKey: ['generation', 'status', taskId],
@@ -273,6 +309,51 @@ export function useGenerationStatus(taskId: string | null, enabled = true) {
         return false;
       }
       return 5000; // Poll every 5 seconds
+    },
+  });
+}
+
+// Remove segment last frame
+export function useRemoveSegmentLastFrame() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (segmentId: string) => {
+      const { data } = await apiClient.delete(`/segments/${segmentId}/last-frame`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['segments'] });
+    },
+  });
+}
+
+// Segment frame uploads
+export function useUploadSegmentFrame() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      segmentId,
+      frameType,
+      file,
+    }: {
+      segmentId: string;
+      frameType: 'first' | 'last';
+      file: File;
+    }) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      const { data } = await apiClient.post<{ url: string; filename: string; frame_type: string }>(
+        `/media/upload/segment-frame/${segmentId}`,
+        formData,
+        {
+          params: { frame_type: frameType },
+          headers: { 'Content-Type': 'multipart/form-data' },
+        }
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['segments'] });
     },
   });
 }
@@ -334,6 +415,66 @@ export function useUploadAudioSample() {
       queryClient.invalidateQueries({
         queryKey: ['projects', variables.projectId],
       });
+    },
+  });
+}
+
+// Voice hooks
+export function useVoices() {
+  return useQuery({
+    queryKey: ['voices'],
+    queryFn: async () => {
+      const { data } = await apiClient.get<VoiceListResponse>('/voices/');
+      return data;
+    },
+  });
+}
+
+export function useCreateVoice() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (voice: VoiceCreate) => {
+      const { data } = await apiClient.post<Voice>('/voices/', voice);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['voices'] });
+    },
+  });
+}
+
+export function useDeleteVoice() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (voiceId: string) => {
+      await apiClient.delete(`/voices/${voiceId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['voices'] });
+    },
+  });
+}
+
+export function useAssignVoice() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (request: AssignVoiceRequest) => {
+      const { data } = await apiClient.post<{ voice_id: string; project_id: string }>(
+        '/voices/assign',
+        request
+      );
+      return data;
+    },
+    onSuccess: (data) => {
+      // Update project cache with the new voice_id
+      queryClient.setQueryData(['projects', data.project_id], (oldData: Project | undefined) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          voiceId: data.voice_id,
+        };
+      });
+      queryClient.invalidateQueries({ queryKey: ['projects', data.project_id] });
     },
   });
 }

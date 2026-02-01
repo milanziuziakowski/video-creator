@@ -14,11 +14,10 @@ import {
   useGenerateSegment,
   useFinalizeProject,
   useDeleteProject,
+  getMediaUrl,
 } from '../api';
-import { FileUpload, SegmentCard, PageLoading, VideoPlayer } from '../components';
+import { FileUpload, SegmentCard, PageLoading, VideoPlayer, VoiceSelector } from '../components';
 import type { ProjectStatus } from '../types';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
 export function ProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -87,10 +86,33 @@ export function ProjectDetailPage() {
   };
 
   const canGeneratePlan =
-    project.firstFrameUrl && project.audioSampleUrl && project.storyPrompt;
+    project.firstFrameUrl && project.storyPrompt && project.voiceId;
+
+  const canShowVoiceSelection =
+    project.firstFrameUrl && project.storyPrompt;
 
   const allSegmentsApproved =
     segments && segments.length > 0 && segments.every((s) => s.status === 'segment_approved');
+
+  // Check if all segments have audio but some need video generation
+  const allHaveAudio = segments && segments.length > 0 && segments.every((s) => s.audioUrl);
+  const allVideosGenerated = segments && segments.length > 0 && segments.every((s) => s.videoUrl);
+  const someGenerating = segments && segments.some((s) => s.status === 'generating');
+
+  // Find the next segment that can be generated (sequential)
+  const nextGeneratableSegment = segments?.find((segment, index) => {
+    if (segment.videoUrl || segment.status === 'generating') return false;
+    if (!segment.audioUrl || !segment.firstFrameUrl) return false;
+    // Check if previous segment has video (or is first segment)
+    if (index === 0) return true;
+    const prevSegment = segments[index - 1];
+    return prevSegment?.videoUrl != null;
+  });
+
+  const handleGenerateNextVideo = async () => {
+    if (!nextGeneratableSegment) return;
+    await generateSegment.mutateAsync(nextGeneratableSegment.id);
+  };
 
   return (
     <div className="space-y-8">
@@ -134,7 +156,7 @@ export function ProjectDetailPage() {
               label="First Frame Image"
               onUpload={handleFirstFrameUpload}
               isLoading={uploadFirstFrame.isPending}
-              previewUrl={project.firstFrameUrl}
+              previewUrl={getMediaUrl(project.firstFrameUrl)}
               type="image"
             />
             <FileUpload
@@ -142,36 +164,67 @@ export function ProjectDetailPage() {
               label="Voice Sample (for cloning)"
               onUpload={handleAudioUpload}
               isLoading={uploadAudio.isPending}
-              previewUrl={project.audioSampleUrl}
+              previewUrl={getMediaUrl(project.audioSampleUrl)}
               type="audio"
             />
           </div>
 
-          {canGeneratePlan && (
-            <div className="mt-6 flex gap-4">
-              {!project.voiceId && (
+          {canShowVoiceSelection && (
+            <div className="mt-6 space-y-4">
+              {/* Voice Selection Section */}
+              <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <h3 className="text-sm font-semibold text-gray-700 mb-3">Voice Selection</h3>
+                <div className="flex flex-wrap items-center gap-3">
+                  {!project.voiceId && (
+                    <>
+                      {/* Option 1: Use existing voice */}
+                      <VoiceSelector
+                        projectId={projectId!}
+                        currentVoiceId={project.voiceId}
+                      />
+                      
+                      <span className="text-gray-400">or</span>
+                      
+                      {/* Option 2: Clone new voice */}
+                      <button
+                        onClick={handleCloneVoice}
+                        disabled={cloneVoice.isPending || !project.audioSampleUrl}
+                        className="px-4 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2"
+                        data-testid="clone-voice-button"
+                        title={!project.audioSampleUrl ? 'Upload audio sample first' : ''}
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        {cloneVoice.isPending ? 'Cloning Voice...' : 'Clone New Voice'}
+                      </button>
+                      {!project.audioSampleUrl && (
+                        <span className="text-xs text-gray-500">
+                          (Upload audio sample to clone new voice)
+                        </span>
+                      )}
+                    </>
+                  )}
+                  {project.voiceId && (
+                    <VoiceSelector
+                      projectId={projectId!}
+                      currentVoiceId={project.voiceId}
+                    />
+                  )}
+                </div>
+              </div>
+
+              {/* Generate Plan Button */}
+              <div className="flex gap-4">
                 <button
-                  onClick={handleCloneVoice}
-                  disabled={cloneVoice.isPending}
-                  className="px-4 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50"
-                  data-testid="clone-voice-button"
+                  onClick={handleGeneratePlan}
+                  disabled={generatePlan.isPending || !project.voiceId}
+                  className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  data-testid="generate-plan-button"
                 >
-                  {cloneVoice.isPending ? 'Cloning Voice...' : 'Clone Voice'}
+                  {generatePlan.isPending ? 'Generating Plan...' : 'Generate Video Plan'}
                 </button>
-              )}
-              {project.voiceId && (
-                <span className="px-4 py-2 bg-green-100 text-green-700 rounded-lg">
-                  ✓ Voice Cloned
-                </span>
-              )}
-              <button
-                onClick={handleGeneratePlan}
-                disabled={generatePlan.isPending || !project.voiceId}
-                className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                data-testid="generate-plan-button"
-              >
-                {generatePlan.isPending ? 'Generating Plan...' : 'Generate Video Plan'}
-              </button>
+              </div>
             </div>
           )}
         </div>
@@ -183,28 +236,113 @@ export function ProjectDetailPage() {
           <h2 className="text-lg font-semibold text-gray-900">
             Video Segments ({segments.length})
           </h2>
+
+          {/* Video Generation Progress Banner */}
+          {allHaveAudio && !allVideosGenerated && (
+            <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg border border-purple-200 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-purple-900 flex items-center gap-2">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    {someGenerating ? 'Video Generation In Progress' : 'Ready to Generate Videos'}
+                  </h3>
+                  <p className="text-sm text-purple-700 mt-1">
+                    {someGenerating 
+                      ? `${segments.filter(s => s.status === 'generating').length} video(s) are being generated...`
+                      : nextGeneratableSegment 
+                        ? `Ready to generate Segment ${nextGeneratableSegment.index + 1}. Videos must be generated sequentially.`
+                        : `Upload first frame for the next segment to continue.`}
+                  </p>
+                </div>
+                {nextGeneratableSegment && !someGenerating && (
+                  <button
+                    onClick={handleGenerateNextVideo}
+                    disabled={generateSegment.isPending}
+                    className="px-6 py-3 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2 shadow-md"
+                    data-testid="generate-next-video-button"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    {generateSegment.isPending ? 'Starting...' : `Generate Segment ${nextGeneratableSegment.index + 1}`}
+                  </button>
+                )}
+                {someGenerating && (
+                  <div className="flex items-center gap-2 text-purple-600">
+                    <div className="w-6 h-6 border-3 border-purple-600 border-t-transparent rounded-full animate-spin" />
+                    <span className="font-medium">Processing...</span>
+                  </div>
+                )}
+              </div>
+              
+              {/* Progress indicator */}
+              <div className="mt-4">
+                <div className="flex justify-between text-sm text-purple-700 mb-1">
+                  <span>Video Progress</span>
+                  <span>{segments.filter(s => s.videoUrl).length} / {segments.length}</span>
+                </div>
+                <div className="w-full bg-purple-200 rounded-full h-2">
+                  <div 
+                    className="bg-purple-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${(segments.filter(s => s.videoUrl).length / segments.length) * 100}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* All Videos Generated Banner */}
+          {allVideosGenerated && !allSegmentsApproved && (
+            <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200 p-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-green-900">All Videos Generated!</h3>
+                  <p className="text-sm text-green-700">
+                    Review each video below and click "Approve Video" to proceed to finalization.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-4">
-            {segments.map((segment) => (
-              <SegmentCard
-                key={segment.id}
-                segment={segment}
-                isActive={activeSegmentId === segment.id}
-                onApprove={() => approveSegment.mutate(segment.id)}
-                onApproveVideo={() => approveVideo.mutate(segment.id)}
-                onRegenerate={() => regenerateSegment.mutate(segment.id)}
-                onEdit={(data) =>
-                  updateSegment.mutate({ segmentId: segment.id, data })
-                }
-                onGenerate={() => generateSegment.mutate(segment.id)}
-                isLoading={
-                  approveSegment.isPending ||
-                  approveVideo.isPending ||
-                  updateSegment.isPending ||
-                  regenerateSegment.isPending ||
-                  generateSegment.isPending
-                }
-              />
-            ))}
+            {segments.map((segment, index) => {
+              // Sequential generation: can only generate if previous segment has video
+              const previousSegment = index > 0 ? segments[index - 1] : null;
+              const canGenerate = index === 0 || (previousSegment?.videoUrl != null);
+              
+              return (
+                <SegmentCard
+                  key={segment.id}
+                  segment={segment}
+                  isActive={activeSegmentId === segment.id}
+                  canGenerate={canGenerate}
+                  projectFirstFrameUrl={project.firstFrameUrl}
+                  onApprove={() => approveSegment.mutate(segment.id)}
+                  onApproveVideo={() => approveVideo.mutate(segment.id)}
+                  onRegenerate={() => regenerateSegment.mutate(segment.id)}
+                  onEdit={(data) =>
+                    updateSegment.mutate({ segmentId: segment.id, data })
+                  }
+                  onGenerate={() => generateSegment.mutate(segment.id)}
+                  isLoading={
+                    approveSegment.isPending ||
+                    approveVideo.isPending ||
+                    updateSegment.isPending ||
+                    regenerateSegment.isPending ||
+                    generateSegment.isPending
+                  }
+                />
+              );
+            })}
           </div>
         </div>
       )}
@@ -225,14 +363,14 @@ export function ProjectDetailPage() {
           </div>
           
           <VideoPlayer
-            src={project.finalVideoUrl}
+            src={getMediaUrl(project.finalVideoUrl)!}
             title={project.name}
             className="max-w-3xl mx-auto mb-6"
           />
           
           <div className="flex flex-col sm:flex-row justify-center gap-4">
             <a
-              href={`${API_BASE_URL}/media/download/${projectId}/final`}
+              href={getMediaUrl(project.finalVideoUrl)!}
               className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 shadow-md hover:shadow-lg transition-all"
               download={`${project.name}.mp4`}
               data-testid="download-button"
@@ -254,7 +392,7 @@ export function ProjectDetailPage() {
             </a>
             <button
               onClick={() => {
-                navigator.clipboard.writeText(project.finalVideoUrl!);
+                navigator.clipboard.writeText(getMediaUrl(project.finalVideoUrl)!);
                 alert('Video URL copied to clipboard!');
               }}
               className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white text-gray-700 font-medium rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"

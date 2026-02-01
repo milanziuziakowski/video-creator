@@ -98,7 +98,8 @@ export function useAuth() {
       }
 
       const data = await response.json();
-      setStoredToken(data.access_token);
+      // API returns camelCase (accessToken) due to backend alias_generator
+      setStoredToken(data.accessToken);
       setIsAuthenticated(true);
 
       // Fetch user info

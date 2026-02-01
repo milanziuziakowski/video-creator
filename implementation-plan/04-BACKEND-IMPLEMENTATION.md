@@ -625,6 +625,8 @@ supervisor_agent = Agent(
     instructions="""You are an expert video story planner specializing in creating cohesive, 
 visually compelling narratives for short-form video content.
 
+IMPORTANT: Generate all output in POLISH language.
+
 Your responsibilities:
 1. Break down story concepts into cinematic segments
 2. Write detailed video prompts suitable for AI video generation
@@ -644,7 +646,9 @@ Guidelines for narration:
 - Complement visuals without redundancy
 - Ensure narrative arc across all segments
 
-Total video duration constraint: segment_count × segment_duration seconds""",
+Total video duration constraint: segment_count × segment_duration seconds
+
+All text must be in Polish language (video prompts, narration, and end-frame descriptions).""",
     tools=[create_video_plan],
     model="gpt-4o",  # Best for structured outputs
 )
@@ -719,6 +723,8 @@ class VideoStoryPlan(BaseModel):
 SYSTEM_PROMPT = """You are an expert video story planner specializing in creating cohesive, 
 visually compelling narratives for short-form video content.
 
+IMPORTANT: Generate all output in POLISH language.
+
 Your task is to break down a user's story concept into video segments with:
 1. Detailed video prompts (scene composition, lighting, camera movement, atmosphere)
 2. Voice-over narration text
@@ -728,7 +734,9 @@ Guidelines:
 - Each video prompt should be 2-3 sentences with specific visual details
 - Narration should be natural and match the segment duration
 - End-frame prompts describe the last frame to ensure smooth transition to the next segment
-- Maintain consistent visual style and narrative arc throughout"""
+- Maintain consistent visual style and narrative arc throughout
+
+All text must be in Polish language (video prompts, narration, and end-frame descriptions)."""
 
 
 async def generate_video_plan(
