@@ -49,19 +49,20 @@ class ProjectResponse(ProjectBase):
     """Schema for project response."""
 
     id: str
-    user_id: str
-    segment_count: int
-    voice_id: Optional[str] = None
-    first_frame_url: Optional[str] = None
-    audio_sample_url: Optional[str] = None
-    final_video_url: Optional[str] = None
+    user_id: str = Field(alias="userId")
+    segment_count: int = Field(alias="segmentCount")
+    voice_id: Optional[str] = Field(None, alias="voiceId")
+    first_frame_url: Optional[str] = Field(None, alias="firstFrameUrl")
+    audio_sample_url: Optional[str] = Field(None, alias="audioSampleUrl")
+    final_video_url: Optional[str] = Field(None, alias="finalVideoUrl")
     status: ProjectStatus
     segments: List[SegmentSummary] = []
-    created_at: datetime
-    updated_at: Optional[datetime] = None
+    created_at: datetime = Field(alias="createdAt")
+    updated_at: Optional[datetime] = Field(None, alias="updatedAt")
 
     class Config(APIModel.Config):
         from_attributes = True
+        populate_by_name = True
 
 
 class ProjectListResponse(APIModel):

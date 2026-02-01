@@ -25,6 +25,9 @@ npm-debug.log*
 
 # Testing
 coverage/
+test-results/
+playwright-report/
+.auth/
 
 # TypeScript
 *.tsbuildinfo

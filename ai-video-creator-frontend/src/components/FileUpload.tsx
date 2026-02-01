@@ -103,7 +103,7 @@ export function FileUpload({
             onChange={handleChange}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
             disabled={isLoading}
-            data-testid="file-input"
+            data-testid={`file-input-${type}`}
           />
           <div className="text-center">
             {isLoading ? (

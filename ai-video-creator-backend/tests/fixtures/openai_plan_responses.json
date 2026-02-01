@@ -1,0 +1,60 @@
+{
+  "test_timestamp": "2026-02-01T14:36:31.434669",
+  "config": {
+    "story_prompt": "The man travel over mountains and tries to fly but he can't. Anyway he smiles and tries to be happy.",
+    "segment_count": 3,
+    "segment_duration": 6,
+    "model": "gpt-4o",
+    "temperature": 0.7
+  },
+  "plan_generation": {
+    "endpoint": "POST /v1/chat/completions (structured output)",
+    "request": {
+      "model": "gpt-4o",
+      "messages": [
+        {
+          "role": "system",
+          "content": "<system_prompt>"
+        },
+        {
+          "role": "user",
+          "content": "Create a video story plan for:\n\nStory concept: The man travel over mountains and tries to fly but he can't. Anyway he smiles and tries to be happy.\n\nRequirements:\n- 3 segments of 6 seconds each\n- Total duration: 18 seconds\n\nGenerate cinematic prompts with smooth visual transitions between segments.\nEach video_prompt should include specific visual details and can include camera commands.\nEach narration_text should match the segment duration (~6 seconds of speech).\nEach end_frame_prompt should describe where the segment visually ends for seamless transition."
+        }
+      ],
+      "response_format": "VideoStoryPlan",
+      "temperature": 0.7
+    },
+    "response": {
+      "plan": {
+        "title": "The Man Who Tried to Fly",
+        "segments": [
+          {
+            "segment_index": 0,
+            "video_prompt": "The scene opens with a wide shot of a solitary man standing on a rugged mountain peak, surrounded by vast, snow-capped ranges. The sky is a brilliant blue with a few wispy clouds. [Zoom in] slowly towards the man as the wind gently rustles his hair and clothes, creating a sense of solitude and determination.",
+            "narration_text": "High in the mountains, he stands alone, gazing at the endless sky, dreaming of flight and freedom.",
+            "end_frame_prompt": "The camera focuses on the man's face, capturing his determined expression as the wind blows through his hair."
+          },
+          {
+            "segment_index": 1,
+            "video_prompt": "Cut to a medium shot of the man spreading his arms wide, as if preparing to take flight. [Tilt down] to show his feet firmly planted on the rocky ground, emphasizing the contrast between his dreams and reality. The light is warm, casting long shadows.",
+            "narration_text": "With arms outstretched, he imagines the sensation of soaring through the air, yet his feet remain grounded.",
+            "end_frame_prompt": "The camera settles on a close-up of his hands gripping the edge of a rock, signifying his connection to the earth."
+          },
+          {
+            "segment_index": 2,
+            "video_prompt": "Transition to a close-up of the man's face as he lowers his arms and smiles softly. [Pull out] to reveal the surrounding landscape, capturing the peaceful and accepting atmosphere. The golden light of the setting sun bathes the scene, adding warmth and tranquility.",
+            "narration_text": "Though he cannot fly, a smile spreads across his face as he embraces the beauty around him, finding joy in the moment.",
+            "end_frame_prompt": "The scene ends with a wide shot of the man silhouetted against the sunset, his smile evident as he gazes into the horizon."
+          }
+        ],
+        "continuity_notes": "Maintain consistent lighting and color grading throughout the segments to emphasize the transition from determination to acceptance. Ensure the wind is a constant presence, symbolizing the man's aspirations and connection to nature."
+      },
+      "usage": {
+        "prompt_tokens": 603,
+        "completion_tokens": 423,
+        "total_tokens": 1026
+      }
+    },
+    "status": "success"
+  }
+}

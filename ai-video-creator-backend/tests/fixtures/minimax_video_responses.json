@@ -1,0 +1,99 @@
+{
+  "test_timestamp": "2026-02-01T14:37:01.306169",
+  "config": {
+    "video_prompt": "The man jumps and the video quality is super good. The lighting is glorious",
+    "duration": 6,
+    "resolution": "768P",
+    "model": "MiniMax-Hailuo-02",
+    "poll_interval": 10,
+    "max_poll_attempts": 60,
+    "use_last_frame": true
+  },
+  "video_generation": {
+    "endpoint": "POST /v1/video_generation",
+    "request": {
+      "model": "MiniMax-Hailuo-02",
+      "prompt": "The man jumps and the video quality is super good. The lighting is glorious",
+      "last_frame_image": "<base64_image_data>",
+      "duration": 6,
+      "resolution": "768P",
+      "prompt_optimizer": true
+    },
+    "response": {
+      "task_id": "362084822114592",
+      "base_resp": {
+        "status_code": 0,
+        "status_msg": "success"
+      }
+    },
+    "status": "success"
+  },
+  "query_video_generation": {
+    "endpoint": "GET /v1/query/video_generation",
+    "request": {
+      "task_id": "362084822114592"
+    },
+    "responses": [
+      {
+        "status": "Preparing",
+        "response": {
+          "task_id": "362084822114592",
+          "status": "Preparing",
+          "file_id": "",
+          "video_width": 0,
+          "video_height": 0,
+          "base_resp": {
+            "status_code": 0,
+            "status_msg": "success"
+          }
+        },
+        "attempt": 1
+      },
+      {
+        "status": "Processing",
+        "response": {
+          "task_id": "362084822114592",
+          "status": "Processing",
+          "file_id": "",
+          "video_width": 0,
+          "video_height": 0,
+          "base_resp": {
+            "status_code": 0,
+            "status_msg": "success"
+          }
+        },
+        "attempt": 4
+      },
+      {
+        "status": "Success",
+        "response": {
+          "task_id": "362084822114592",
+          "status": "Success",
+          "file_id": "362086086975579",
+          "video_width": 808,
+          "video_height": 768,
+          "base_resp": {
+            "status_code": 0,
+            "status_msg": "success"
+          }
+        },
+        "attempt": 8
+      }
+    ],
+    "final_status": "Success",
+    "file_id": "362086086975579"
+  },
+  "files_retrieve": {
+    "endpoint": "GET /v1/files/retrieve",
+    "request": {
+      "file_id": "362086086975579"
+    },
+    "response": {
+      "file": {
+        "file_id": "362086086975579",
+        "download_url": "https://video-product.cdn.minimax.io/inference_output/video/2026-02-01/7b673a3d-e60e-473d-8fb5-26a1ce5e1534/output.mp4"
+      }
+    },
+    "status": "success"
+  }
+}

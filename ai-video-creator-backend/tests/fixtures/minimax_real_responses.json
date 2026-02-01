@@ -1,0 +1,165 @@
+{
+  "generated_at": "2026-02-01T14:48:00.000000",
+  "description": "Real MiniMax API responses captured for backend test mocking",
+  
+  "files_upload": {
+    "endpoint": "POST /v1/files/upload",
+    "request": {
+      "purpose": "voice_clone",
+      "file": "test-audio.mp3"
+    },
+    "response": {
+      "file_id": 362069085524212,
+      "status": "success"
+    }
+  },
+  
+  "voice_clone": {
+    "endpoint": "POST /v1/voice_clone",
+    "request": {
+      "file_id": 362069085524212,
+      "voice_id": "test-voice-20260201133125",
+      "need_noise_reduction": true,
+      "need_volume_normalization": true
+    },
+    "response": {
+      "voice_id": "test-voice-20260201133125",
+      "status": "success"
+    }
+  },
+  
+  "t2a_v2": {
+    "endpoint": "POST /v1/t2a_v2",
+    "request": {
+      "model": "speech-02-hd",
+      "text": "This is a test narration.",
+      "voice_setting": {
+        "voice_id": "test-voice-20260201133125",
+        "speed": 1.0
+      },
+      "audio_setting": {
+        "format": "mp3"
+      }
+    },
+    "response": {
+      "audio_size_bytes": 44160,
+      "status": "success"
+    }
+  },
+  
+  "chained_video_generation": {
+    "description": "3-segment chained video generation with frame extraction",
+    "segments": [
+      {
+        "segment_index": 0,
+        "frame_source": "first-frame.jpg + last-frame.jpg (FL2V)",
+        "task_id": "362090061725888",
+        "file_id": "362088325627994",
+        "download_url": "https://video-product.cdn.minimax.io/inference_output/video/2026-02-01/bbc3affb-5dab-42da-b50e-66052f2914d6/output.mp4",
+        "video_width": 864,
+        "video_height": 768
+      },
+      {
+        "segment_index": 1,
+        "frame_source": "extracted last frame from segment 1",
+        "task_id": "362088904257821",
+        "file_id": "362088836677797",
+        "download_url": "https://video-product.cdn.minimax.io/inference_output/video/2026-02-01/c8de26fe-6951-472b-9c7d-81068aa0172e/output.mp4",
+        "video_width": 864,
+        "video_height": 768
+      },
+      {
+        "segment_index": 2,
+        "frame_source": "extracted last frame from segment 2",
+        "task_id": "362086435836151",
+        "file_id": "362090476376141",
+        "download_url": "https://video-product.cdn.minimax.io/inference_output/video/2026-02-01/56578a0a-8a6d-45f4-82e7-de6b07af0692/output.mp4",
+        "video_width": 864,
+        "video_height": 768
+      }
+    ]
+  },
+
+  "video_generation": {
+    "endpoint": "POST /v1/video_generation",
+    "request": {
+      "model": "MiniMax-Hailuo-02",
+      "prompt": "The scene opens with a wide shot of a solitary man standing on a rugged mountain peak...",
+      "first_frame_image": "<base64_image_data>",
+      "last_frame_image": "<base64_image_data>",
+      "duration": 6,
+      "resolution": "768P",
+      "prompt_optimizer": true
+    },
+    "response": {
+      "task_id": "362090061725888",
+      "base_resp": {
+        "status_code": 0,
+        "status_msg": "success"
+      }
+    }
+  },
+  
+  "query_video_generation": {
+    "endpoint": "GET /v1/query/video_generation?task_id={task_id}",
+    "request": {
+      "task_id": "362090061725888"
+    },
+    "status_responses": {
+      "Preparing": {
+        "task_id": "362090061725888",
+        "status": "Preparing",
+        "file_id": "",
+        "video_width": 0,
+        "video_height": 0,
+        "base_resp": {
+          "status_code": 0,
+          "status_msg": "success"
+        }
+      },
+      "Processing": {
+        "task_id": "362090061725888",
+        "status": "Processing",
+        "file_id": "",
+        "video_width": 0,
+        "video_height": 0,
+        "base_resp": {
+          "status_code": 0,
+          "status_msg": "success"
+        }
+      },
+      "Success": {
+        "task_id": "362090061725888",
+        "status": "Success",
+        "file_id": "362088325627994",
+        "video_width": 864,
+        "video_height": 768,
+        "base_resp": {
+          "status_code": 0,
+          "status_msg": "success"
+        }
+      }
+    }
+  },
+  
+  "files_retrieve": {
+    "endpoint": "GET /v1/files/retrieve?file_id={file_id}",
+    "request": {
+      "file_id": "362088325627994"
+    },
+    "response": {
+      "file": {
+        "file_id": 362088325627994,
+        "bytes": 1172458,
+        "created_at": 1769953690,
+        "filename": "output.mp4",
+        "purpose": "video_generation",
+        "download_url": "https://video-product.cdn.minimax.io/inference_output/video/2026-02-01/bbc3affb-5dab-42da-b50e-66052f2914d6/output.mp4"
+      },
+      "base_resp": {
+        "status_code": 0,
+        "status_msg": "success"
+      }
+    }
+  }
+}

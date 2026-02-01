@@ -227,10 +227,17 @@ export function useCloneVoice() {
         null,
         { params: { project_id: projectId } }
       );
-      return data;
+      return { projectId, voiceId: data.voice_id };
     },
-    onSuccess: (_, projectId) => {
-      queryClient.invalidateQueries({ queryKey: ['projects', projectId] });
+    onSuccess: async ({ projectId, voiceId }) => {
+      // Update the cache with the voice_id
+      queryClient.setQueryData(['projects', projectId], (oldData: any) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          voiceId: voiceId,
+        };
+      });
     },
   });
 }

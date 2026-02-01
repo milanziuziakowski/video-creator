@@ -20,6 +20,7 @@ from app.api.v1.router import api_router
 from app.db.base import Base
 from app.api.deps import get_current_user, get_db
 from app.db.models.user import User
+from tests.fixtures.minimax_mocks import MinimaxMockResponses
 
 
 # Test database URL (SQLite for testing)
@@ -209,19 +210,43 @@ async def async_client(
 
 @pytest.fixture
 def mock_minimax_client():
-    """Mock MiniMax client."""
-    with patch("app.integrations.minimax_client.MiniMaxClient") as mock:
+    """Mock MiniMax client with real API responses."""
+    with patch("app.integrations.minimax_client.MinimaxClient") as mock:
         client = MagicMock()
-        client.upload_file = AsyncMock(return_value="file-123")
-        client.voice_clone = AsyncMock(return_value="voice-123")
-        client.text_to_audio = AsyncMock(return_value=b"audio_bytes")
-        client.generate_video = AsyncMock(return_value="task-123")
-        client.generate_video_fl2v = AsyncMock(return_value="task-123")
+        
+        # Use real captured responses
+        file_id = str(MinimaxMockResponses.files_upload()["file"]["file_id"])
+        voice_id = "test-voice-20260201133125"
+        task_id = MinimaxMockResponses.video_generation()["task_id"]
+        
+        client.upload_file = AsyncMock(return_value=file_id)
+        client.voice_clone = AsyncMock(return_value=voice_id)
+        
+        # Return actual audio bytes (minimal MP3)
+        import base64
+        audio_data = MinimaxMockResponses.t2a_v2()["data"]["audio"]
+        client.text_to_audio = AsyncMock(return_value=base64.b64decode(audio_data))
+        
+        client.generate_video = AsyncMock(return_value=task_id)
+        client.generate_video_fl2v = AsyncMock(return_value=task_id)
+        
+        # Return real success response
+        success_response = MinimaxMockResponses.query_video_generation("Success")
         client.query_video_status = AsyncMock(return_value={
-            "status": "Success",
-            "file_id": "file-123",
+            "status": success_response["status"],
+            "file_id": success_response["file_id"],
+            "task_id": success_response["task_id"],
         })
-        client.poll_video_until_complete = AsyncMock(return_value="/path/to/video.mp4")
+        
+        # Return download URL
+        retrieve_response = MinimaxMockResponses.files_retrieve()
+        client.retrieve_file = AsyncMock(return_value=retrieve_response["file"]["download_url"])
+        client.poll_video_until_complete = AsyncMock(return_value={
+            "status": "Success",
+            "file_id": success_response["file_id"],
+            "download_url": retrieve_response["file"]["download_url"],
+        })
+        
         mock.return_value = client
         yield client
 

@@ -20,6 +20,11 @@ class MinimaxClient:
 
     def __init__(self, api_key: str | None = None):
         self.api_key = api_key or settings.MINIMAX_API_KEY
+        self.mock_mode = not self.api_key or self.api_key == ""
+        
+        if self.mock_mode:
+            logger.warning("MiniMax API key not configured - running in MOCK mode")
+        
         self._headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -70,6 +75,10 @@ class MinimaxClient:
         Returns:
             file_id string
         """
+        if self.mock_mode:
+            logger.info(f"[MOCK] Uploading file {filename} for {purpose}")
+            return f"mock-file-{hash(filename) % 10000}"
+        
         url = f"{MINIMAX_API_BASE}/files/upload"
 
         async with httpx.AsyncClient(timeout=TIMEOUT) as client:
@@ -96,6 +105,10 @@ class MinimaxClient:
         Returns:
             Download URL
         """
+        if self.mock_mode:
+            logger.info(f"[MOCK] Retrieving file {file_id}")
+            return f"https://mock-cdn.example.com/{file_id}.mp4"
+        
         data = await self._request("GET", "/files/retrieve", params={"file_id": file_id})
         return data["file"]["download_url"]
 
@@ -121,6 +134,11 @@ class MinimaxClient:
         Returns:
             voice_id string (same as input if successful)
         """
+        if self.mock_mode:
+            logger.info(f"[MOCK] Cloning voice with ID {voice_id} from file {file_id}")
+            await asyncio.sleep(0.1)  # Simulate processing
+            return voice_id
+        
         await self._request(
             "POST",
             "/voice_clone",
@@ -153,6 +171,11 @@ class MinimaxClient:
         Returns:
             Audio bytes
         """
+        if self.mock_mode:
+            logger.info(f"[MOCK] Generating audio for text (length: {len(text)}) with voice {voice_id}")
+            # Return minimal valid MP3 header (silence)
+            return b"\xff\xfb\x90\x00" + b"\x00" * 100
+        
         url = f"{MINIMAX_API_BASE}/t2a_v2"
 
         async with httpx.AsyncClient(timeout=TIMEOUT) as client:
@@ -180,9 +203,27 @@ class MinimaxClient:
                 return response.content
             else:
                 data = response.json()
-                if "data" in data and "audio" in data["data"]:
-                    return base64.b64decode(data["data"]["audio"])
-                raise Exception(f"Unexpected TTS response: {data}")
+                
+                # Handle different response formats
+                if "data" in data:
+                    if isinstance(data["data"], dict) and "audio" in data["data"]:
+                        # Base64 encoded audio
+                        audio_b64 = data["data"]["audio"]
+                        # Add padding if needed
+                        missing_padding = len(audio_b64) % 4
+                        if missing_padding:
+                            audio_b64 += '=' * (4 - missing_padding)
+                        return base64.b64decode(audio_b64)
+                    elif isinstance(data["data"], str):
+                        # Might be base64 string directly
+                        audio_b64 = data["data"]
+                        missing_padding = len(audio_b64) % 4
+                        if missing_padding:
+                            audio_b64 += '=' * (4 - missing_padding)
+                        return base64.b64decode(audio_b64)
+                
+                # If we get here, the format is unexpected
+                raise Exception(f"Unexpected TTS response format: {data}")
 
     # -------------------------------------------------------------------------
     # Video Operations - First & Last Frame Video Generation (FL2V)
@@ -258,6 +299,10 @@ class MinimaxClient:
         Returns:
             task_id for polling
         """
+        if self.mock_mode:
+            logger.info(f"[MOCK] Generating video: {prompt[:50]}...")
+            return f"mock-task-{hash(prompt) % 10000}"
+        
         payload: Dict[str, Any] = {
             "prompt": prompt,
             "first_frame_image": first_frame_image,
@@ -281,6 +326,15 @@ class MinimaxClient:
         Returns:
             Dict with status, file_id (if complete), error (if failed)
         """
+        if self.mock_mode:
+            logger.info(f"[MOCK] Querying status for task {task_id}")
+            # Always return success for mock mode
+            return {
+                "task_id": task_id,
+                "status": "Success",
+                "file_id": f"mock-file-{task_id}",
+            }
+        
         data = await self._request(
             "GET",
             "/query/video_generation",

@@ -17,7 +17,7 @@ from app.config import settings
 config = context.config
 
 # Override sqlalchemy.url from settings
-config.set_main_option("sqlalchemy.url", settings.database_url.replace("+asyncpg", ""))
+config.set_main_option("sqlalchemy.url", settings.DATABASE_URL.replace("+asyncpg", "").replace("+aiosqlite", ""))
 
 # Interpret the config file for Python logging
 if config.config_file_name is not None:

@@ -152,34 +152,49 @@ class OrchestratorService:
         if not project.audio_sample_url:
             raise ValueError("No audio sample uploaded")
 
+        # Store audio path before any DB operations
+        audio_path = Path(project.audio_sample_url)
+        if not audio_path.exists():
+            logger.error(f"Audio file not found at path: {audio_path}")
+            raise ValueError(f"Audio file not found at path: {audio_path}")
+
+        # Read audio file
+        try:
+            with open(audio_path, "rb") as f:
+                audio_bytes = f.read()
+        except Exception as e:
+            logger.error(f"Failed to read audio file {audio_path}: {e}")
+            raise ValueError(f"Failed to read audio file: {e}")
+
+        # Update status to VOICE_CLONING
         project.status = ProjectStatus.VOICE_CLONING
         await self.db.flush()
 
-        # Read audio file
-        audio_path = Path(project.audio_sample_url)
-        if not audio_path.exists():
-            raise ValueError("Audio file not found")
+        try:
+            # Upload to MiniMax
+            file_id = await self.minimax_client.upload_file(
+                audio_bytes,
+                audio_path.name,
+                purpose="voice_clone",
+            )
 
-        with open(audio_path, "rb") as f:
-            audio_bytes = f.read()
+            # Clone voice
+            voice_id = f"voice-{project_id[:8]}"
+            await self.minimax_client.voice_clone(file_id, voice_id)
 
-        # Upload to MiniMax
-        file_id = await self.minimax_client.upload_file(
-            audio_bytes,
-            audio_path.name,
-            purpose="voice_clone",
-        )
-
-        # Clone voice
-        voice_id = f"voice-{project_id[:8]}"
-        await self.minimax_client.voice_clone(file_id, voice_id)
-
-        # Update project
-        project.voice_id = voice_id
-        project.status = ProjectStatus.PLAN_READY
-        await self.db.flush()
-
-        return voice_id
+            # Update project with voice_id and status
+            project.voice_id = voice_id
+            project.status = ProjectStatus.MEDIA_UPLOADED
+            await self.db.commit()
+            
+            return voice_id
+            
+        except Exception as e:
+            logger.error(f"Voice cloning failed: {e}")
+            # Rollback status change
+            project.status = ProjectStatus.MEDIA_UPLOADED
+            await self.db.commit()
+            raise ValueError(f"Voice cloning failed: {e}")
 
     async def start_segment_generation(
         self,

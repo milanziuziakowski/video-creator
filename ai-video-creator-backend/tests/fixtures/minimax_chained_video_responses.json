@@ -1,0 +1,259 @@
+{
+  "test_timestamp": "2026-02-01T14:48:10.220555",
+  "config": {
+    "prompts": [
+      "The scene opens with a wide shot of a solitary man standing on a rugged mountain peak, surrounded by vast, snow-capped ranges. The sky is a brilliant blue with a few wispy clouds. [Zoom in] slowly towards the man as the wind gently rustles his hair and clothes, creating a sense of solitude and determination.",
+      "Cut to a medium shot of the man spreading his arms wide, as if preparing to take flight. [Tilt down] to show his feet firmly planted on the rocky ground, emphasizing the contrast between his dreams and reality. The light is warm, casting long shadows.",
+      "Transition to a close-up of the man's face as he lowers his arms and smiles softly. [Pull out] to reveal the surrounding landscape, capturing the peaceful and accepting atmosphere. The golden light of the setting sun bathes the scene, adding warmth and tranquility."
+    ],
+    "duration": 6,
+    "resolution": "768P",
+    "model": "MiniMax-Hailuo-02",
+    "poll_interval": 10,
+    "max_poll_attempts": 60
+  },
+  "segments": [
+    {
+      "segment_index": 0,
+      "prompt": "The scene opens with a wide shot of a solitary man standing ...",
+      "frame_source": "initial_first_frame + initial_last_frame",
+      "video_generation": {
+        "request": {
+          "model": "MiniMax-Hailuo-02",
+          "prompt": "The scene opens with a wide shot of a solitary man standing on a rugged mountain peak, surrounded by vast, snow-capped ranges. The sky is a brilliant blue with a few wispy clouds. [Zoom in] slowly towards the man as the wind gently rustles his hair and clothes, creating a sense of solitude and determination.",
+          "first_frame_image": "<base64_data>",
+          "last_frame_image": "<base64_data>",
+          "duration": 6,
+          "resolution": "768P"
+        },
+        "response": {
+          "task_id": "362090061725888",
+          "base_resp": {
+            "status_code": 0,
+            "status_msg": "success"
+          }
+        }
+      },
+      "query_video_generation": {
+        "statuses": [
+          {
+            "status": "Preparing",
+            "response": {
+              "task_id": "362090061725888",
+              "status": "Preparing",
+              "file_id": "",
+              "video_width": 0,
+              "video_height": 0,
+              "base_resp": {
+                "status_code": 0,
+                "status_msg": "success"
+              }
+            },
+            "attempt": 1
+          },
+          {
+            "status": "Processing",
+            "response": {
+              "task_id": "362090061725888",
+              "status": "Processing",
+              "file_id": "",
+              "video_width": 0,
+              "video_height": 0,
+              "base_resp": {
+                "status_code": 0,
+                "status_msg": "success"
+              }
+            },
+            "attempt": 4
+          },
+          {
+            "status": "Success",
+            "response": {
+              "task_id": "362090061725888",
+              "status": "Success",
+              "file_id": "362088325627994",
+              "video_width": 864,
+              "video_height": 768,
+              "base_resp": {
+                "status_code": 0,
+                "status_msg": "success"
+              }
+            },
+            "attempt": 8
+          }
+        ],
+        "final_file_id": "362088325627994",
+        "video_width": 864,
+        "video_height": 768
+      },
+      "files_retrieve": {
+        "file_id": "362088325627994",
+        "download_url": "https://video-product.cdn.minimax.io/inference_output/video/2026-02-01/bbc3affb-5dab-42da-b50e-66052f2914d6/output.mp4"
+      },
+      "extracted_frame": {
+        "path": "C:\\Users\\milan\\AppData\\Local\\Temp\\minimax_test_bfoa1lh4\\segment_1_last_frame.jpg",
+        "size_bytes": 71080
+      }
+    },
+    {
+      "segment_index": 1,
+      "prompt": "Cut to a medium shot of the man spreading his arms wide, as ...",
+      "frame_source": "last_frame_from_segment_1",
+      "video_generation": {
+        "request": {
+          "model": "MiniMax-Hailuo-02",
+          "prompt": "Cut to a medium shot of the man spreading his arms wide, as if preparing to take flight. [Tilt down] to show his feet firmly planted on the rocky ground, emphasizing the contrast between his dreams and reality. The light is warm, casting long shadows.",
+          "first_frame_image": "<base64_data>",
+          "last_frame_image": null,
+          "duration": 6,
+          "resolution": "768P"
+        },
+        "response": {
+          "task_id": "362088904257821",
+          "base_resp": {
+            "status_code": 0,
+            "status_msg": "success"
+          }
+        }
+      },
+      "query_video_generation": {
+        "statuses": [
+          {
+            "status": "Preparing",
+            "response": {
+              "task_id": "362088904257821",
+              "status": "Preparing",
+              "file_id": "",
+              "video_width": 0,
+              "video_height": 0,
+              "base_resp": {
+                "status_code": 0,
+                "status_msg": "success"
+              }
+            },
+            "attempt": 1
+          },
+          {
+            "status": "Processing",
+            "response": {
+              "task_id": "362088904257821",
+              "status": "Processing",
+              "file_id": "",
+              "video_width": 0,
+              "video_height": 0,
+              "base_resp": {
+                "status_code": 0,
+                "status_msg": "success"
+              }
+            },
+            "attempt": 4
+          },
+          {
+            "status": "Success",
+            "response": {
+              "task_id": "362088904257821",
+              "status": "Success",
+              "file_id": "362088836677797",
+              "video_width": 864,
+              "video_height": 768,
+              "base_resp": {
+                "status_code": 0,
+                "status_msg": "success"
+              }
+            },
+            "attempt": 10
+          }
+        ],
+        "final_file_id": "362088836677797",
+        "video_width": 864,
+        "video_height": 768
+      },
+      "files_retrieve": {
+        "file_id": "362088836677797",
+        "download_url": "https://video-product.cdn.minimax.io/inference_output/video/2026-02-01/c8de26fe-6951-472b-9c7d-81068aa0172e/output.mp4"
+      },
+      "extracted_frame": {
+        "path": "C:\\Users\\milan\\AppData\\Local\\Temp\\minimax_test_bfoa1lh4\\segment_2_last_frame.jpg",
+        "size_bytes": 40138
+      }
+    },
+    {
+      "segment_index": 2,
+      "prompt": "Transition to a close-up of the man's face as he lowers his ...",
+      "frame_source": "last_frame_from_segment_2",
+      "video_generation": {
+        "request": {
+          "model": "MiniMax-Hailuo-02",
+          "prompt": "Transition to a close-up of the man's face as he lowers his arms and smiles softly. [Pull out] to reveal the surrounding landscape, capturing the peaceful and accepting atmosphere. The golden light of the setting sun bathes the scene, adding warmth and tranquility.",
+          "first_frame_image": "<base64_data>",
+          "last_frame_image": null,
+          "duration": 6,
+          "resolution": "768P"
+        },
+        "response": {
+          "task_id": "362086435836151",
+          "base_resp": {
+            "status_code": 0,
+            "status_msg": "success"
+          }
+        }
+      },
+      "query_video_generation": {
+        "statuses": [
+          {
+            "status": "Preparing",
+            "response": {
+              "task_id": "362086435836151",
+              "status": "Preparing",
+              "file_id": "",
+              "video_width": 0,
+              "video_height": 0,
+              "base_resp": {
+                "status_code": 0,
+                "status_msg": "success"
+              }
+            },
+            "attempt": 1
+          },
+          {
+            "status": "Processing",
+            "response": {
+              "task_id": "362086435836151",
+              "status": "Processing",
+              "file_id": "",
+              "video_width": 0,
+              "video_height": 0,
+              "base_resp": {
+                "status_code": 0,
+                "status_msg": "success"
+              }
+            },
+            "attempt": 3
+          },
+          {
+            "status": "Success",
+            "response": {
+              "task_id": "362086435836151",
+              "status": "Success",
+              "file_id": "362090476376141",
+              "video_width": 864,
+              "video_height": 768,
+              "base_resp": {
+                "status_code": 0,
+                "status_msg": "success"
+              }
+            },
+            "attempt": 8
+          }
+        ],
+        "final_file_id": "362090476376141",
+        "video_width": 864,
+        "video_height": 768
+      },
+      "files_retrieve": {
+        "file_id": "362090476376141",
+        "download_url": "https://video-product.cdn.minimax.io/inference_output/video/2026-02-01/56578a0a-8a6d-45f4-82e7-de6b07af0692/output.mp4"
+      }
+    }
+  ]
+}
