@@ -6,10 +6,6 @@ on:
   pull_request:
     branches: [main, develop]
 
-defaults:
-  run:
-    working-directory: ai-video-creator-frontend
-
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -24,16 +20,45 @@ jobs:
           cache: 'npm'
           cache-dependency-path: ai-video-creator-frontend/package-lock.json
 
-      - name: Install dependencies
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: ai-video-creator-backend/pyproject.toml
+
+      - name: Install backend dependencies
+        working-directory: ai-video-creator-backend
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Start backend server
+        working-directory: ai-video-creator-backend
+        run: |
+          # Start uvicorn in background
+          uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+          # Wait for backend to be ready
+          timeout 30 bash -c 'until curl -f http://localhost:8000/health; do sleep 1; done'
+        env:
+          DATABASE_URL: sqlite:///./test.db
+          JWT_SECRET_KEY: test-secret-key-for-ci
+          JWT_ALGORITHM: HS256
+          APP_ENV: development
+
+      - name: Install frontend dependencies
+        working-directory: ai-video-creator-frontend
         run: npm ci
 
       - name: Install Playwright browsers
+        working-directory: ai-video-creator-frontend
         run: npx playwright install --with-deps chromium
 
       - name: Run Playwright tests
+        working-directory: ai-video-creator-frontend
         run: npx playwright test --project=chromium
         env:
           E2E_MOCK_AUTH: 'true'
+          VITE_API_URL: http://localhost:8000/api/v1
 
       - name: Upload test report
         uses: actions/upload-artifact@v4
