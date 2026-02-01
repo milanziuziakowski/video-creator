@@ -53,8 +53,6 @@ Go to: **Repository** → **Settings** → **Secrets and variables** → **Actio
 | `OPENAI_API_KEY` | OpenAI API key | From platform.openai.com |
 | `MINIMAX_API_KEY` | MiniMax API key | From minimax platform |
 | `AZURE_DB_CONNECTION_STRING` | PostgreSQL URL | See format below |
-| `AZURE_TENANT_ID` | Azure AD tenant ID | From Azure Portal |
-| `AZURE_CLIENT_ID` | App registration ID | From Azure Portal |
 
 ### Get Static Web App Token:
 ```powershell
@@ -76,9 +74,7 @@ Go to: **Repository** → **Settings** → **Secrets and variables** → **Actio
 |--------------|-------|---------|
 | `VITE_API_URL` | Backend API URL (staging) | `https://app-aivideo-dev.azurewebsites.net/api/v1` |
 | `VITE_API_URL_PROD` | Backend API URL (prod) | `https://app-aivideo-prod.azurewebsites.net/api/v1` |
-| `VITE_AZURE_CLIENT_ID` | Same as AZURE_CLIENT_ID | Your client ID |
-| `VITE_AZURE_TENANT_ID` | Same as AZURE_TENANT_ID | Your tenant ID |
-| `VITE_REDIRECT_URI_PROD` | Frontend URL | `https://your-swa.azurestaticapps.net` |
+
 
 ---
 

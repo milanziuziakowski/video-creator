@@ -81,10 +81,6 @@ MINIMAX_API_KEY            # MiniMax API key
 
 # Database
 AZURE_DB_CONNECTION_STRING # PostgreSQL connection string
-
-# Azure Entra ID
-AZURE_TENANT_ID            # Azure AD tenant ID
-AZURE_CLIENT_ID            # App registration client ID
 ```
 
 ### 3.2 Create Azure Service Principal
@@ -302,9 +298,7 @@ jobs:
               {"name": "SCM_DO_BUILD_DURING_DEPLOYMENT", "value": "true"},
               {"name": "OPENAI_API_KEY", "value": "${{ secrets.OPENAI_API_KEY }}"},
               {"name": "MINIMAX_API_KEY", "value": "${{ secrets.MINIMAX_API_KEY }}"},
-              {"name": "DATABASE_URL", "value": "${{ secrets.AZURE_DB_CONNECTION_STRING }}"},
-              {"name": "AZURE_TENANT_ID", "value": "${{ secrets.AZURE_TENANT_ID }}"},
-              {"name": "AZURE_CLIENT_ID", "value": "${{ secrets.AZURE_CLIENT_ID }}"}
+              {"name": "DATABASE_URL", "value": "${{ secrets.AZURE_DB_CONNECTION_STRING }}"}
             ]
       
       - name: Logout from Azure

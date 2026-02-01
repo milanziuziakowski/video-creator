@@ -85,19 +85,7 @@ For **each environment**, add these variables:
 
 ### Required Variables per Environment
 
-#### Dev Environment Variables
-| Variable Name | Value |
-|---------------|-------|
-| `AZURE_CLIENT_ID` | Your Azure AD app client ID |
-| `AZURE_TENANT_ID` | Your Azure AD tenant ID |
-| `AZURE_API_CLIENT_ID` | Backend API app registration ID |
-
-#### Prod Environment Variables
-| Variable Name | Value |
-|---------------|-------|
-| `AZURE_CLIENT_ID` | Same as dev (or different for prod) |
-| `AZURE_TENANT_ID` | Same as dev |
-| `AZURE_API_CLIENT_ID` | Same as dev (or different for prod) |
+No environment-specific variables are required for this setup.
 
 ---
 
@@ -140,10 +128,6 @@ If you only need **dev** environment for now:
 3. **Add environment secrets:**
    - Settings → Environments → `dev`
    - Add: `AZURE_STATIC_WEB_APPS_API_TOKEN`, `JWT_SECRET_KEY`
-
-4. **Add environment variables:**
-   - Settings → Environments → `dev` → Variables
-   - Add: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_API_CLIENT_ID`
 
 ---
 
@@ -200,9 +184,7 @@ After a successful deployment:
 - [ ] `JWT_SECRET_KEY` - JWT signing key
 
 ### Environment-Level Variables (per environment)
-- [ ] `AZURE_CLIENT_ID` - Frontend app registration ID
-- [ ] `AZURE_TENANT_ID` - Azure AD tenant ID
-- [ ] `AZURE_API_CLIENT_ID` - Backend API app registration ID
+No environment-specific variables required for this setup.
 
 ---
 
