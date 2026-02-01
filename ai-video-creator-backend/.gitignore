@@ -117,5 +117,8 @@ dmypy.json
 # Storage directories
 storage/
 
+# Database files
+*.db
+
 # Alembic
 alembic/versions/*.pyc
