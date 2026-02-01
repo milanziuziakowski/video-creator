@@ -7,6 +7,7 @@ interface VideoPlayerProps {
   title?: string;
   onClose?: () => void;
   showModal?: boolean;
+  'data-testid'?: string;
 }
 
 /**
@@ -17,6 +18,7 @@ export function VideoPlayer({
   poster,
   className = '',
   title,
+  'data-testid': dataTestId,
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -75,6 +77,7 @@ export function VideoPlayer({
           onLoadedMetadata={handleLoadedMetadata}
           onEnded={() => setIsPlaying(false)}
           onClick={togglePlay}
+          data-testid={dataTestId}
         />
 
         {/* Overlay Controls */}
@@ -270,6 +273,7 @@ export function VideoThumbnail({ src, poster, title, className = '' }: VideoThum
           poster={poster}
           className="w-full rounded-lg bg-black"
           muted
+          data-testid="segment-video"
         />
         <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors rounded-lg">
           <div className="w-12 h-12 flex items-center justify-center bg-white/90 rounded-full shadow-lg group-hover:scale-110 transition-transform">

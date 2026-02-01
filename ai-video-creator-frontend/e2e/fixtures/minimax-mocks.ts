@@ -354,6 +354,25 @@ export const BACKEND_MOCK_RESPONSES = {
     finalVideoUrl: 'https://storage.example.com/videos/final-video.mp4',
     durationSec: 30,
   },
+
+  /**
+   * GET /api/v1/projects/{project_id}
+   * Mock project with voiceId set (after voice cloning)
+   */
+  project: {
+    id: 'project-123',
+    name: 'Test Project',
+    storyPrompt: 'A mountain adventure',
+    status: 'plan_ready',
+    firstFrameUrl: '/uploads/first-frame.jpg',
+    audioSampleUrl: '/uploads/audio.mp3',
+    voiceId: MINIMAX_MOCK_RESPONSES.voiceClone.voice_id,
+    finalVideoUrl: null,
+    segmentCount: 3,
+    targetDurationSec: 18,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
 };
 
 /**
@@ -368,6 +387,9 @@ export function setupMinimaxMocks(page: any) {
     JSON.stringify(BACKEND_MOCK_RESPONSES.projectSegments)
   );
 
+  // Track if voice has been cloned (for project state)
+  let voiceCloned = false;
+
   return {
     /**
      * Reset segments state to initial values
@@ -380,17 +402,47 @@ export function setupMinimaxMocks(page: any) {
         status: 'prompt_ready',
         approved: false,
       }))));
+      voiceCloned = false;
     },
 
     /**
-     * Mock voice cloning endpoint
+     * Mock voice cloning endpoint - also sets voiceCloned flag
      */
     async mockVoiceClone() {
       await page.route('**/api/v1/generation/voice-clone*', async (route: any) => {
+        voiceCloned = true;
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
           body: JSON.stringify(BACKEND_MOCK_RESPONSES.voiceClone),
+        });
+      });
+    },
+
+    /**
+     * Mock project GET endpoint - returns voiceId after voice cloning
+     */
+    async mockProject() {
+      await page.route('**/api/v1/projects/*', async (route: any) => {
+        // Don't mock POST, PUT requests or finalize
+        if (route.request().method() !== 'GET' || route.request().url().includes('/finalize')) {
+          await route.continue();
+          return;
+        }
+
+        // Extract project ID from URL
+        const url = route.request().url();
+        const projectIdMatch = url.match(/\/projects\/([^/]+)$/);
+        const projectId = projectIdMatch ? projectIdMatch[1] : 'project-123';
+
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            ...BACKEND_MOCK_RESPONSES.project,
+            id: projectId,
+            voiceId: voiceCloned ? MINIMAX_MOCK_RESPONSES.voiceClone.voice_id : null,
+          }),
         });
       });
     },
@@ -553,6 +605,7 @@ export function setupMinimaxMocks(page: any) {
 
     /**
      * Mock all endpoints at once
+     * NOTE: mockProject is not included by default to avoid interfering with project creation
      */
     async mockAll() {
       // Reset state before setting up mocks

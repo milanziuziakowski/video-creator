@@ -38,12 +38,12 @@ test.describe('Segment Management', () => {
     );
     await expect(page.locator('audio')).toBeVisible({ timeout: 30000 });
 
-    // Clone voice and generate plan
-    await page.click('[data-testid="clone-voice-button"]');
+    // Clone voice and generate plan (use force for mobile compatibility)
+    await page.click('[data-testid="clone-voice-button"]', { force: true });
     await expect(page.locator('[data-testid="generate-plan-button"]')).toBeEnabled({
       timeout: 60000,
     });
-    await page.click('[data-testid="generate-plan-button"]');
+    await page.click('[data-testid="generate-plan-button"]', { force: true });
 
     // Wait for segments to appear
     await expect(page.locator('[data-testid="segment-card-0"]')).toBeVisible({

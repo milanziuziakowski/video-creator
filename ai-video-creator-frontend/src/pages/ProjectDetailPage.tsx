@@ -366,6 +366,7 @@ export function ProjectDetailPage() {
             src={getMediaUrl(project.finalVideoUrl)!}
             title={project.name}
             className="max-w-3xl mx-auto mb-6"
+            data-testid="final-video"
           />
           
           <div className="flex flex-col sm:flex-row justify-center gap-4">
