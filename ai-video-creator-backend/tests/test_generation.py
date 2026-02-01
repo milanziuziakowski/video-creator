@@ -93,15 +93,20 @@ async def test_generate_segment(
     db_with_user: AsyncSession,
     test_user: User,
     mock_minimax_client,
+    tmp_path,
 ):
     """Test segment generation."""
+    # Create a real first frame file
+    first_frame_path = tmp_path / "first_frame.jpg"
+    first_frame_path.write_bytes(b"\xff\xd8\xff\xe0" + b"\x00" * 100)  # Minimal JPEG header
+    
     # Create project with voice
     project = Project(
         user_id=test_user.id,
         name="Test",
         status=ProjectStatus.PLANNED,
         voice_id="voice-123",
-        first_frame_url="/path/to/frame.jpg",
+        first_frame_url=str(first_frame_path),
     )
     db_with_user.add(project)
     await db_with_user.flush()
@@ -113,7 +118,7 @@ async def test_generate_segment(
         video_prompt="Test prompt",
         narration_text="Test narration",
         status=SegmentStatus.APPROVED,
-        first_frame_url="/path/to/first.jpg",
+        first_frame_url=str(first_frame_path),
         approved=True,
     )
     db_with_user.add(segment)
