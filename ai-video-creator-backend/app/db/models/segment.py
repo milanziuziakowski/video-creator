@@ -2,7 +2,9 @@
 
 import uuid
 from enum import Enum
-from sqlalchemy import Column, String, Integer, Boolean, Enum as SQLEnum, ForeignKey, Text, Float
+
+from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.orm import relationship, synonym
 
 from app.db.base import Base, TimestampMixin

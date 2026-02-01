@@ -1,27 +1,26 @@
 """Pytest configuration and fixtures."""
 
 import asyncio
+from collections.abc import AsyncGenerator, AsyncIterator, Generator
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import AsyncGenerator, Generator
-from collections.abc import AsyncIterator
 from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 import pytest_asyncio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.testclient import TestClient
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
-from app.config import settings
-from app.api.v1.router import api_router
-from app.db.base import Base
 from app.api.deps import get_current_user, get_db
+from app.api.v1.router import api_router
+from app.config import settings
+from app.db.base import Base
 from app.db.models.user import User
 from tests.fixtures.minimax_mocks import MinimaxMockResponses
-
 
 # Test database URL (SQLite for testing)
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
@@ -29,11 +28,12 @@ TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 def create_test_app() -> FastAPI:
     """Create test FastAPI app with no-op lifespan (no DB init)."""
+
     @asynccontextmanager
     async def test_lifespan(app: FastAPI):
         """Test lifespan - no database initialization."""
         yield
-    
+
     test_app = FastAPI(
         title=settings.APP_NAME,
         version="1.0.0",
@@ -83,9 +83,9 @@ async def async_engine():
     )
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    
+
     yield engine
-    
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
     await engine.dispose()
@@ -101,7 +101,7 @@ async def db_session(async_engine) -> AsyncGenerator[AsyncSession, None]:
         autocommit=False,
         autoflush=False,
     )
-    
+
     async with async_session_maker() as session:
         yield session
         await session.rollback()
@@ -142,16 +142,20 @@ async def db_with_user(db_session: AsyncSession, test_user: User) -> AsyncSessio
 @pytest.fixture
 def override_get_db(db_session: AsyncSession):
     """Override get_db dependency."""
+
     async def _override():
         yield db_session
+
     return _override
 
 
 @pytest.fixture
 def override_get_current_user(test_user: User):
     """Override get_current_user dependency."""
+
     async def _override():
         return test_user
+
     return _override
 
 
@@ -163,10 +167,10 @@ def sync_client(
     """Create sync test client with overridden dependencies (for non-async tests)."""
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_current_user] = override_get_current_user
-    
+
     with TestClient(app) as c:
         yield c
-    
+
     app.dependency_overrides.clear()
 
 
@@ -185,17 +189,17 @@ async def client(
 
     async def override_get_db():
         yield db_session
-    
+
     async def override_get_current_user():
         return test_user
-    
+
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_current_user] = override_get_current_user
-    
+
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
-    
+
     app.dependency_overrides.clear()
 
 
@@ -213,40 +217,45 @@ def mock_minimax_client():
     """Mock MiniMax client with real API responses."""
     with patch("app.integrations.minimax_client.MinimaxClient") as mock:
         client = MagicMock()
-        
+
         # Use real captured responses
         file_id = str(MinimaxMockResponses.files_upload()["file"]["file_id"])
         voice_id = "test-voice-20260201133125"
         task_id = MinimaxMockResponses.video_generation()["task_id"]
-        
+
         client.upload_file = AsyncMock(return_value=file_id)
         client.voice_clone = AsyncMock(return_value=voice_id)
-        
+
         # Return actual audio bytes (minimal MP3)
         import base64
+
         audio_data = MinimaxMockResponses.t2a_v2()["data"]["audio"]
         client.text_to_audio = AsyncMock(return_value=base64.b64decode(audio_data))
-        
+
         client.generate_video = AsyncMock(return_value=task_id)
         client.generate_video_fl2v = AsyncMock(return_value=task_id)
-        
+
         # Return real success response
         success_response = MinimaxMockResponses.query_video_generation("Success")
-        client.query_video_status = AsyncMock(return_value={
-            "status": success_response["status"],
-            "file_id": success_response["file_id"],
-            "task_id": success_response["task_id"],
-        })
-        
+        client.query_video_status = AsyncMock(
+            return_value={
+                "status": success_response["status"],
+                "file_id": success_response["file_id"],
+                "task_id": success_response["task_id"],
+            }
+        )
+
         # Return download URL
         retrieve_response = MinimaxMockResponses.files_retrieve()
         client.retrieve_file = AsyncMock(return_value=retrieve_response["file"]["download_url"])
-        client.poll_video_until_complete = AsyncMock(return_value={
-            "status": "Success",
-            "file_id": success_response["file_id"],
-            "download_url": retrieve_response["file"]["download_url"],
-        })
-        
+        client.poll_video_until_complete = AsyncMock(
+            return_value={
+                "status": "Success",
+                "file_id": success_response["file_id"],
+                "download_url": retrieve_response["file"]["download_url"],
+            }
+        )
+
         mock.return_value = client
         yield client
 
@@ -270,21 +279,23 @@ def mock_plan_generator():
     """Mock plan generator agent."""
     with patch("app.agents.plan_generator.PlanGeneratorAgent") as mock:
         agent = MagicMock()
-        agent.generate_plan = AsyncMock(return_value={
-            "segments": [
-                {
-                    "video_prompt": "A person walking in a park",
-                    "narration_text": "On a sunny day, they went for a walk.",
-                    "end_frame_prompt": "Person stopping at a bench",
-                    "duration_sec": 6,
-                },
-                {
-                    "video_prompt": "Person sitting on a bench",
-                    "narration_text": "They sat down to rest.",
-                    "end_frame_prompt": "Person relaxing on bench",
-                    "duration_sec": 6,
-                },
-            ]
-        })
+        agent.generate_plan = AsyncMock(
+            return_value={
+                "segments": [
+                    {
+                        "video_prompt": "A person walking in a park",
+                        "narration_text": "On a sunny day, they went for a walk.",
+                        "end_frame_prompt": "Person stopping at a bench",
+                        "duration_sec": 6,
+                    },
+                    {
+                        "video_prompt": "Person sitting on a bench",
+                        "narration_text": "They sat down to rest.",
+                        "end_frame_prompt": "Person relaxing on bench",
+                        "duration_sec": 6,
+                    },
+                ]
+            }
+        )
         mock.return_value = agent
         yield agent

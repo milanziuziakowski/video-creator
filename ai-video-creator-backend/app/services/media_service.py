@@ -1,25 +1,25 @@
 """Media service for file handling and media operations."""
 
-import uuid
 import logging
+import uuid
 from pathlib import Path
-from typing import Optional
+
 import aiofiles
 import httpx
 
 from app.config import settings
-from app.integrations import ffmpeg_wrapper
 from app.db.models.project import Project
+from app.integrations import ffmpeg_wrapper
 
 logger = logging.getLogger(__name__)
 
 
 def url_to_file_path(url: str) -> Path:
     """Convert a URL path like /output/file.mp4 to absolute file path.
-    
+
     Args:
         url: URL path starting with /output/, /temp/, or /uploads/
-        
+
     Returns:
         Absolute Path to the file
     """
@@ -75,7 +75,7 @@ class MediaService:
     async def download_file(
         self,
         url: str,
-        filename: Optional[str] = None,
+        filename: str | None = None,
     ) -> Path:
         """Download file from URL to storage.
 
@@ -123,23 +123,21 @@ class MediaService:
 
                 # Convert URL to file path
                 video_path = url_to_file_path(segment.video_url)
-                
+
                 if not video_path.exists():
                     logger.error(f"Video file not found: {video_path}")
                     raise ValueError(f"Video file not found for segment {segment.index + 1}")
 
                 if segment.audio_url:
                     audio_path = url_to_file_path(segment.audio_url)
-                    
+
                     if not audio_path.exists():
                         logger.error(f"Audio file not found: {audio_path}")
                         raise ValueError(f"Audio file not found for segment {segment.index + 1}")
 
                     # Mux video with audio (audio will be adjusted to video length)
                     muxed_path = settings.storage_temp / f"muxed_{segment.id}.mp4"
-                    await ffmpeg_wrapper.mux_segment_video_audio(
-                        video_path, audio_path, muxed_path
-                    )
+                    await ffmpeg_wrapper.mux_segment_video_audio(video_path, audio_path, muxed_path)
                     muxed_segment_paths.append(muxed_path)
                     temp_files.append(muxed_path)
                     logger.info(f"Muxed segment {segment.index + 1}: {muxed_path}")
@@ -170,7 +168,7 @@ class MediaService:
     async def extract_last_frame(
         self,
         video_path: Path,
-        output_name: Optional[str] = None,
+        output_name: str | None = None,
     ) -> Path:
         """Extract last frame from video.
 
@@ -191,7 +189,7 @@ class MediaService:
         self,
         file_bytes: bytes,
         filename: str,
-    ) -> tuple[bool, Optional[str]]:
+    ) -> tuple[bool, str | None]:
         """Validate image file for MiniMax API requirements.
 
         Args:
@@ -218,7 +216,7 @@ class MediaService:
         self,
         file_bytes: bytes,
         filename: str,
-    ) -> tuple[bool, Optional[str]]:
+    ) -> tuple[bool, str | None]:
         """Validate audio file for voice cloning.
 
         Args:

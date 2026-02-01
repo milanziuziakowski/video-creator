@@ -1,6 +1,7 @@
 """SQLAlchemy base configuration."""
 
 from datetime import datetime
+
 from sqlalchemy import Column, DateTime
 from sqlalchemy.orm import declarative_base
 

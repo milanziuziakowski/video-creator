@@ -1,7 +1,6 @@
 """Pydantic models for Voice API."""
 
 from datetime import datetime
-from typing import Optional
 
 from app.models.base import APIModel
 
@@ -10,7 +9,7 @@ class VoiceBase(APIModel):
     """Base voice schema."""
 
     name: str
-    description: Optional[str] = None
+    description: str | None = None
 
 
 class VoiceCreate(VoiceBase):

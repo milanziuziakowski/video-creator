@@ -1,9 +1,8 @@
 """MiniMax API client for video and audio generation."""
 
 import asyncio
-import base64
 import logging
-from typing import Optional, Dict, Any
+from typing import Any
 
 import httpx
 
@@ -21,10 +20,10 @@ class MinimaxClient:
     def __init__(self, api_key: str | None = None):
         self.api_key = api_key or settings.MINIMAX_API_KEY
         self.mock_mode = not self.api_key or self.api_key == ""
-        
+
         if self.mock_mode:
             logger.warning("MiniMax API key not configured - running in MOCK mode")
-        
+
         self._headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -35,7 +34,7 @@ class MinimaxClient:
         method: str,
         endpoint: str,
         **kwargs: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Make HTTP request to MiniMax API."""
         url = f"{MINIMAX_API_BASE}{endpoint}"
 
@@ -78,7 +77,7 @@ class MinimaxClient:
         if self.mock_mode:
             logger.info(f"[MOCK] Uploading file {filename} for {purpose}")
             return f"mock-file-{hash(filename) % 10000}"
-        
+
         url = f"{MINIMAX_API_BASE}/files/upload"
 
         async with httpx.AsyncClient(timeout=TIMEOUT) as client:
@@ -108,7 +107,7 @@ class MinimaxClient:
         if self.mock_mode:
             logger.info(f"[MOCK] Retrieving file {file_id}")
             return f"https://mock-cdn.example.com/{file_id}.mp4"
-        
+
         data = await self._request("GET", "/files/retrieve", params={"file_id": file_id})
         return data["file"]["download_url"]
 
@@ -138,7 +137,7 @@ class MinimaxClient:
             logger.info(f"[MOCK] Cloning voice with ID {voice_id} from file {file_id}")
             await asyncio.sleep(0.1)  # Simulate processing
             return voice_id
-        
+
         await self._request(
             "POST",
             "/voice_clone",
@@ -172,10 +171,12 @@ class MinimaxClient:
             Audio bytes
         """
         if self.mock_mode:
-            logger.info(f"[MOCK] Generating audio for text (length: {len(text)}) with voice {voice_id}")
+            logger.info(
+                f"[MOCK] Generating audio for text (length: {len(text)}) with voice {voice_id}"
+            )
             # Return minimal valid MP3 header (silence)
             return b"\xff\xfb\x90\x00" + b"\x00" * 100
-        
+
         url = f"{MINIMAX_API_BASE}/t2a_v2"
 
         async with httpx.AsyncClient(timeout=TIMEOUT) as client:
@@ -204,13 +205,13 @@ class MinimaxClient:
                 raise Exception(f"MiniMax T2A error: {response.text}")
 
             data = response.json()
-            
+
             # Check for API errors
             base_resp = data.get("base_resp", {})
             if base_resp.get("status_code") != 0:
                 error_msg = base_resp.get("status_msg", "Unknown error")
                 raise Exception(f"MiniMax T2A error: {error_msg}")
-            
+
             # Extract audio data - MiniMax returns hex-encoded audio in data.audio
             if "data" in data and data["data"]:
                 audio_data = data["data"]
@@ -223,7 +224,7 @@ class MinimaxClient:
                     # Direct hex string
                     logger.info(f"Received direct hex audio, length: {len(audio_data)} chars")
                     return bytes.fromhex(audio_data)
-            
+
             # If we get here, the format is unexpected
             logger.error(f"Unexpected TTS response format: {data}")
             raise Exception(f"Unexpected TTS response format: {data}")
@@ -236,12 +237,12 @@ class MinimaxClient:
         self,
         prompt: str,
         last_frame_image: str,
-        first_frame_image: Optional[str] = None,
+        first_frame_image: str | None = None,
         model: str = "MiniMax-Hailuo-02",
         duration: int = 6,
         resolution: str = "768P",
         prompt_optimizer: bool = True,
-        callback_url: Optional[str] = None,
+        callback_url: str | None = None,
     ) -> str:
         """Start First & Last Frame video generation task (FL2V).
 
@@ -260,7 +261,7 @@ class MinimaxClient:
         Returns:
             task_id for polling
         """
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "model": model,
             "last_frame_image": last_frame_image,
             "duration": duration,
@@ -284,7 +285,7 @@ class MinimaxClient:
         self,
         prompt: str,
         first_frame_image: str,
-        last_frame_image: Optional[str] = None,
+        last_frame_image: str | None = None,
         model: str = "MiniMax-Hailuo-02",
         duration: int = 6,
         resolution: str = "720P",
@@ -305,8 +306,8 @@ class MinimaxClient:
         if self.mock_mode:
             logger.info(f"[MOCK] Generating video: {prompt[:50]}...")
             return f"mock-task-{hash(prompt) % 10000}"
-        
-        payload: Dict[str, Any] = {
+
+        payload: dict[str, Any] = {
             "prompt": prompt,
             "first_frame_image": first_frame_image,
             "model": model,
@@ -320,7 +321,7 @@ class MinimaxClient:
         data = await self._request("POST", "/video_generation", json=payload)
         return data["task_id"]
 
-    async def query_video_status(self, task_id: str) -> Dict[str, Any]:
+    async def query_video_status(self, task_id: str) -> dict[str, Any]:
         """Query video generation status.
 
         Args:
@@ -337,7 +338,7 @@ class MinimaxClient:
                 "status": "Success",
                 "file_id": f"mock-file-{task_id}",
             }
-        
+
         data = await self._request(
             "GET",
             "/query/video_generation",
@@ -355,7 +356,7 @@ class MinimaxClient:
         task_id: str,
         interval: float = 10.0,
         max_attempts: int = 60,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Poll video generation until complete or failed.
 
         Args:

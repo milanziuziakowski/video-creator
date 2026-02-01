@@ -4,9 +4,9 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models.user import User
 from app.db.models.project import Project, ProjectStatus
 from app.db.models.segment import Segment, SegmentStatus
+from app.db.models.user import User
 
 
 @pytest.fixture
@@ -21,7 +21,7 @@ async def project_with_segments(db_with_user: AsyncSession, test_user: User):
     )
     db_with_user.add(project)
     await db_with_user.flush()
-    
+
     segments = []
     for i in range(3):
         segment = Segment(
@@ -35,12 +35,12 @@ async def project_with_segments(db_with_user: AsyncSession, test_user: User):
         )
         db_with_user.add(segment)
         segments.append(segment)
-    
+
     await db_with_user.commit()
     await db_with_user.refresh(project)
     for seg in segments:
         await db_with_user.refresh(seg)
-    
+
     return project, segments
 
 
@@ -51,9 +51,9 @@ async def test_list_project_segments(
 ):
     """Test listing segments for a project."""
     project, segments = project_with_segments
-    
+
     response = await async_client.get(f"/api/v1/segments/project/{project.id}")
-    
+
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 3
@@ -70,9 +70,9 @@ async def test_get_segment(
     """Test getting a specific segment."""
     project, segments = project_with_segments
     segment = segments[0]
-    
+
     response = await async_client.get(f"/api/v1/segments/{segment.id}")
-    
+
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == segment.id
@@ -87,7 +87,7 @@ async def test_update_segment(
     """Test updating segment prompts."""
     project, segments = project_with_segments
     segment = segments[0]
-    
+
     response = await async_client.put(
         f"/api/v1/segments/{segment.id}",
         json={
@@ -95,7 +95,7 @@ async def test_update_segment(
             "narrationText": "Updated narration",
         },
     )
-    
+
     assert response.status_code == 200
     data = response.json()
     assert data["videoPrompt"] == "Updated video prompt"
@@ -110,9 +110,9 @@ async def test_approve_segment(
     """Test approving a segment."""
     project, segments = project_with_segments
     segment = segments[0]
-    
+
     response = await async_client.post(f"/api/v1/segments/{segment.id}/approve")
-    
+
     assert response.status_code == 200
     data = response.json()
     assert data["approved"] is True
@@ -133,7 +133,7 @@ async def test_approve_segment_wrong_status(
     )
     db_with_user.add(project)
     await db_with_user.flush()
-    
+
     segment = Segment(
         project_id=project.id,
         index=0,
@@ -143,9 +143,9 @@ async def test_approve_segment_wrong_status(
     db_with_user.add(segment)
     await db_with_user.commit()
     await db_with_user.refresh(segment)
-    
+
     response = await async_client.post(f"/api/v1/segments/{segment.id}/approve")
-    
+
     assert response.status_code == 400
 
 
@@ -163,7 +163,7 @@ async def test_approve_video(
     )
     db_with_user.add(project)
     await db_with_user.flush()
-    
+
     segment = Segment(
         project_id=project.id,
         index=0,
@@ -174,9 +174,9 @@ async def test_approve_video(
     db_with_user.add(segment)
     await db_with_user.commit()
     await db_with_user.refresh(segment)
-    
+
     response = await async_client.post(f"/api/v1/segments/{segment.id}/approve-video")
-    
+
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "segment_approved"
@@ -196,7 +196,7 @@ async def test_request_regenerate(
     )
     db_with_user.add(project)
     await db_with_user.flush()
-    
+
     segment = Segment(
         project_id=project.id,
         index=0,
@@ -208,9 +208,9 @@ async def test_request_regenerate(
     db_with_user.add(segment)
     await db_with_user.commit()
     await db_with_user.refresh(segment)
-    
+
     response = await async_client.post(f"/api/v1/segments/{segment.id}/regenerate")
-    
+
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "approved"

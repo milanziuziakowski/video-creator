@@ -1,8 +1,9 @@
 """Database session management."""
 
-from typing import AsyncGenerator
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from collections.abc import AsyncGenerator
+
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.config import settings
 from app.db.base import Base
@@ -26,7 +27,7 @@ async def init_db() -> None:
     """Initialize database - create all tables."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    
+
     # Seed dev user in development mode
     if settings.is_development:
         await seed_dev_user()
@@ -34,16 +35,14 @@ async def init_db() -> None:
 
 async def seed_dev_user() -> None:
     """Seed development user for testing."""
-    from app.db.models.user import User
     from app.auth.jwt_auth import get_password_hash
-    
+    from app.db.models.user import User
+
     async with async_session_factory() as session:
         # Check if dev user exists
-        result = await session.execute(
-            select(User).where(User.id == "dev-user-id")
-        )
+        result = await session.execute(select(User).where(User.id == "dev-user-id"))
         existing_user = result.scalar_one_or_none()
-        
+
         if existing_user is None:
             # Create dev user
             dev_user = User(

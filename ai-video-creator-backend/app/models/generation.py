@@ -1,7 +1,7 @@
 """Generation-related Pydantic models."""
 
 from enum import Enum
-from typing import Optional, List
+
 from pydantic import Field
 
 from app.models.base import APIModel
@@ -29,7 +29,7 @@ class VideoPlanResponse(APIModel):
     """Response from AI video plan generation."""
 
     title: str
-    segments: List[VideoPlanSegment]
+    segments: list[VideoPlanSegment]
     continuity_notes: str
 
 
@@ -51,10 +51,10 @@ class GenerationStatusResponse(APIModel):
 
     task_id: str
     status: GenerationStatus
-    file_id: Optional[str] = None
-    download_url: Optional[str] = None
-    error: Optional[str] = None
-    progress: Optional[int] = None  # 0-100
+    file_id: str | None = None
+    download_url: str | None = None
+    error: str | None = None
+    progress: int | None = None  # 0-100
 
 
 class FL2VResolution(str, Enum):
@@ -102,13 +102,11 @@ class FL2VGenerateRequest(APIModel):
         max_length=2000,
         description="Video description. Can include camera commands like [Zoom in], [Pan left]",
     )
-    first_frame_image: Optional[str] = Field(
+    first_frame_image: str | None = Field(
         default=None,
         description="URL or base64 data URL (data:image/jpeg;base64,...) of first frame",
     )
-    last_frame_image: str = Field(
-        ..., description="Required. URL or base64 data URL of last frame"
-    )
+    last_frame_image: str = Field(..., description="Required. URL or base64 data URL of last frame")
     duration: int = Field(default=6, ge=6, le=10, description="Video duration in seconds (6 or 10)")
     resolution: FL2VResolution = Field(
         default=FL2VResolution.RES_768P,
@@ -117,7 +115,7 @@ class FL2VGenerateRequest(APIModel):
     prompt_optimizer: bool = Field(
         default=True, description="Auto-optimize prompt. Set False for precise control"
     )
-    camera_commands: Optional[List[CameraCommand]] = Field(
+    camera_commands: list[CameraCommand] | None = Field(
         default=None,
         max_length=3,
         description="Camera commands to append to prompt (max 3 simultaneous)",

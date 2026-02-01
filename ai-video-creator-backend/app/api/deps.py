@@ -1,13 +1,13 @@
 """FastAPI dependencies for route injection."""
 
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.jwt_auth import get_current_user_token, TokenData
-from app.db.session import get_db_session
+from app.auth.jwt_auth import TokenData, get_current_user_token
 from app.db.models.user import User
+from app.db.session import get_db_session
 from app.services.user_service import UserService
 
 

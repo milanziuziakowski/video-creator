@@ -5,7 +5,6 @@ import logging
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Optional
 
 from app.config import settings
 
@@ -319,13 +318,14 @@ class FFmpegWrapper:
             Path to adjusted audio file
         """
         current_duration = await self.probe_duration(audio_path)
-        
+
         if abs(current_duration - target_duration) < 0.1:
             # Duration is close enough, just copy
             import shutil
+
             shutil.copy(audio_path, output_path)
             return output_path
-        
+
         if current_duration > target_duration:
             # Trim audio
             cmd = [
@@ -359,7 +359,7 @@ class FFmpegWrapper:
                 "2",
                 str(output_path),
             ]
-        
+
         await self._run_command(cmd)
         return output_path
 
@@ -381,11 +381,11 @@ class FFmpegWrapper:
         """
         # Get video duration
         video_duration = await self.probe_duration(video_path)
-        
+
         # Adjust audio to match video duration
         adjusted_audio = output_path.parent / f"adjusted_{output_path.stem}.mp3"
         await self.adjust_audio_duration(audio_path, video_duration, adjusted_audio)
-        
+
         # Mux video with adjusted audio
         cmd = [
             self.ffmpeg_path,
@@ -406,10 +406,10 @@ class FFmpegWrapper:
         ]
 
         await self._run_command(cmd)
-        
+
         # Clean up adjusted audio
         adjusted_audio.unlink(missing_ok=True)
-        
+
         return output_path
 
 

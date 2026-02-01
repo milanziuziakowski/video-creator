@@ -1,13 +1,14 @@
 """Tests for generation endpoints."""
 
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import AsyncMock, patch
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models.user import User
 from app.db.models.project import Project, ProjectStatus
 from app.db.models.segment import Segment, SegmentStatus
+from app.db.models.user import User
 
 
 @pytest.fixture
@@ -41,7 +42,9 @@ async def test_generate_plan(
     mock_plan_generator,
 ):
     """Test generating video plan."""
-    with patch("app.services.orchestrator_service.PlanGeneratorAgent", return_value=mock_plan_generator):
+    with patch(
+        "app.services.orchestrator_service.PlanGeneratorAgent", return_value=mock_plan_generator
+    ):
         response = await async_client.post(
             "/api/v1/generation/plan",
             json={
@@ -49,7 +52,7 @@ async def test_generate_plan(
                 "storyPrompt": "A story about adventure",
             },
         )
-    
+
     assert response.status_code == 200
     data = response.json()
     assert "segments" in data
@@ -57,7 +60,9 @@ async def test_generate_plan(
 
 
 @pytest.mark.asyncio
-async def test_generate_plan_project_not_found(async_client: AsyncClient, db_with_user: AsyncSession):
+async def test_generate_plan_project_not_found(
+    async_client: AsyncClient, db_with_user: AsyncSession
+):
     """Test generating plan for non-existent project."""
     response = await async_client.post(
         "/api/v1/generation/plan",
@@ -66,7 +71,7 @@ async def test_generate_plan_project_not_found(async_client: AsyncClient, db_wit
             "storyPrompt": "A story",
         },
     )
-    
+
     assert response.status_code == 400
 
 
@@ -81,7 +86,7 @@ async def test_clone_voice(
         response = await async_client.post(
             f"/api/v1/generation/voice-clone?project_id={project_for_generation.id}"
         )
-    
+
     assert response.status_code == 200
     data = response.json()
     assert "voice_id" in data
@@ -105,7 +110,7 @@ async def test_generate_segment(
     )
     db_with_user.add(project)
     await db_with_user.flush()
-    
+
     # Create approved segment
     segment = Segment(
         project_id=project.id,
@@ -119,10 +124,10 @@ async def test_generate_segment(
     db_with_user.add(segment)
     await db_with_user.commit()
     await db_with_user.refresh(segment)
-    
+
     with patch("app.services.orchestrator_service.MiniMaxClient", return_value=mock_minimax_client):
         response = await async_client.post(f"/api/v1/generation/segment/{segment.id}")
-    
+
     assert response.status_code == 200
     data = response.json()
     assert "task_id" in data
@@ -137,7 +142,7 @@ async def test_get_generation_status(
     """Test getting generation status."""
     with patch("app.services.orchestrator_service.MiniMaxClient", return_value=mock_minimax_client):
         response = await async_client.get("/api/v1/generation/status/task-123")
-    
+
     assert response.status_code == 200
     data = response.json()
     assert "status" in data

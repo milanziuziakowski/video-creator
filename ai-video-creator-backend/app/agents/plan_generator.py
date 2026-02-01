@@ -1,7 +1,7 @@
 """Video plan generator using OpenAI Structured Outputs."""
 
 import logging
-from typing import List
+
 from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
 
@@ -23,10 +23,8 @@ class VideoStoryPlan(BaseModel):
     """Complete video plan schema."""
 
     title: str = Field(..., description="Video title")
-    segments: List[SegmentPrompt] = Field(..., description="List of segment prompts")
-    continuity_notes: str = Field(
-        ..., description="Notes about visual continuity between segments"
-    )
+    segments: list[SegmentPrompt] = Field(..., description="List of segment prompts")
+    continuity_notes: str = Field(..., description="Notes about visual continuity between segments")
 
 
 class PlanGeneratorAgent:

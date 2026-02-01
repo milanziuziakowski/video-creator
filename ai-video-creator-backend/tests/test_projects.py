@@ -4,8 +4,8 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models.user import User
 from app.db.models.project import Project, ProjectStatus
+from app.db.models.user import User
 
 
 @pytest.mark.asyncio
@@ -19,7 +19,7 @@ async def test_create_project(async_client: AsyncClient, db_with_user: AsyncSess
             "targetDurationSec": 60,
         },
     )
-    
+
     assert response.status_code == 201
     data = response.json()
     assert data["name"] == "Test Project"
@@ -29,7 +29,9 @@ async def test_create_project(async_client: AsyncClient, db_with_user: AsyncSess
 
 
 @pytest.mark.asyncio
-async def test_list_projects(async_client: AsyncClient, db_with_user: AsyncSession, test_user: User):
+async def test_list_projects(
+    async_client: AsyncClient, db_with_user: AsyncSession, test_user: User
+):
     """Test listing user projects."""
     # Create a project first
     project = Project(
@@ -41,9 +43,9 @@ async def test_list_projects(async_client: AsyncClient, db_with_user: AsyncSessi
     )
     db_with_user.add(project)
     await db_with_user.commit()
-    
+
     response = await async_client.get("/api/v1/projects/")
-    
+
     assert response.status_code == 200
     data = response.json()
     assert data["total"] >= 1
@@ -63,9 +65,9 @@ async def test_get_project(async_client: AsyncClient, db_with_user: AsyncSession
     db_with_user.add(project)
     await db_with_user.commit()
     await db_with_user.refresh(project)
-    
+
     response = await async_client.get(f"/api/v1/projects/{project.id}")
-    
+
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == project.id
@@ -76,12 +78,14 @@ async def test_get_project(async_client: AsyncClient, db_with_user: AsyncSession
 async def test_get_project_not_found(async_client: AsyncClient, db_with_user: AsyncSession):
     """Test getting a non-existent project."""
     response = await async_client.get("/api/v1/projects/nonexistent-id")
-    
+
     assert response.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_update_project(async_client: AsyncClient, db_with_user: AsyncSession, test_user: User):
+async def test_update_project(
+    async_client: AsyncClient, db_with_user: AsyncSession, test_user: User
+):
     """Test updating a project."""
     project = Project(
         user_id=test_user.id,
@@ -93,7 +97,7 @@ async def test_update_project(async_client: AsyncClient, db_with_user: AsyncSess
     db_with_user.add(project)
     await db_with_user.commit()
     await db_with_user.refresh(project)
-    
+
     response = await async_client.put(
         f"/api/v1/projects/{project.id}",
         json={
@@ -101,7 +105,7 @@ async def test_update_project(async_client: AsyncClient, db_with_user: AsyncSess
             "storyPrompt": "Updated story",
         },
     )
-    
+
     assert response.status_code == 200
     data = response.json()
     assert data["name"] == "Updated Name"
@@ -109,7 +113,9 @@ async def test_update_project(async_client: AsyncClient, db_with_user: AsyncSess
 
 
 @pytest.mark.asyncio
-async def test_delete_project(async_client: AsyncClient, db_with_user: AsyncSession, test_user: User):
+async def test_delete_project(
+    async_client: AsyncClient, db_with_user: AsyncSession, test_user: User
+):
     """Test deleting a project."""
     project = Project(
         user_id=test_user.id,
@@ -121,11 +127,11 @@ async def test_delete_project(async_client: AsyncClient, db_with_user: AsyncSess
     db_with_user.add(project)
     await db_with_user.commit()
     await db_with_user.refresh(project)
-    
+
     response = await async_client.delete(f"/api/v1/projects/{project.id}")
-    
+
     assert response.status_code == 204
-    
+
     # Verify deletion
     get_response = await async_client.get(f"/api/v1/projects/{project.id}")
     assert get_response.status_code == 404

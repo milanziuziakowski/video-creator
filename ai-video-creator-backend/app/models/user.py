@@ -1,8 +1,9 @@
 """User Pydantic models for API."""
 
 from datetime import datetime
-from typing import Optional
-from pydantic import Field, EmailStr
+
+from pydantic import EmailStr, Field
+
 from app.models.base import APIModel
 
 
@@ -12,7 +13,7 @@ class UserCreate(APIModel):
     username: str = Field(..., min_length=3, max_length=50)
     email: EmailStr
     password: str = Field(..., min_length=6)
-    name: Optional[str] = None
+    name: str | None = None
 
 
 class UserLogin(APIModel):
@@ -46,5 +47,5 @@ class Token(APIModel):
 class TokenData(APIModel):
     """Schema for token data."""
 
-    username: Optional[str] = None
-    user_id: Optional[str] = None
+    username: str | None = None
+    user_id: str | None = None

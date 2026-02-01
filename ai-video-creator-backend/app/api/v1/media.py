@@ -1,15 +1,16 @@
 """Media API endpoints for file uploads."""
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
-from fastapi.responses import FileResponse
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 from pathlib import Path
+
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db
 from app.config import settings
-from app.db.models.user import User
 from app.db.models.project import Project, ProjectStatus
+from app.db.models.user import User
 from app.services.media_service import MediaService
 from app.services.project_service import ProjectService
 
@@ -18,8 +19,8 @@ router = APIRouter(prefix="/media", tags=["media"])
 
 def file_path_to_url(file_path: Path) -> str:
     """Convert a file system path to a URL path.
-    
-    Converts paths like 'storage/uploads/projects/xxx/file.jpg' 
+
+    Converts paths like 'storage/uploads/projects/xxx/file.jpg'
     to '/uploads/projects/xxx/file.jpg'
     """
     # Get the path relative to storage_uploads

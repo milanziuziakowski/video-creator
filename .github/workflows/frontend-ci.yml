@@ -45,10 +45,44 @@ jobs:
       - name: Check formatting
         run: npx prettier --check "src/**/*.{ts,tsx}"
 
+  test:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: ai-video-creator-frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        run: npm run test:e2e -- --project=chromium
+        env:
+          VITE_API_BASE_URL: http://localhost:8000/api/v1
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: ai-video-creator-frontend/playwright-report/
+          retention-days: 7
+
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: lint
+    needs: [lint, test]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -66,9 +100,10 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          VITE_API_BASE_URL: /api/v1
-          VITE_AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
-          VITE_AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          # Use placeholder values for CI build
+          VITE_API_BASE_URL: http://localhost:8000/api/v1
+          VITE_AZURE_CLIENT_ID: test-client-id
+          VITE_AZURE_TENANT_ID: test-tenant-id
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4

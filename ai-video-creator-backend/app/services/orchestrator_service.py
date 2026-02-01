@@ -1,45 +1,42 @@
 """Orchestrator service for video generation workflow."""
 
 import base64
-import uuid
 import logging
 import mimetypes
-from typing import Optional
 from pathlib import Path
 
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agents import PlanGeneratorAgent, SegmentPrompt, VideoStoryPlan
+from app.config import settings
 from app.db.models.project import Project, ProjectStatus
 from app.db.models.segment import Segment, SegmentStatus
 from app.db.models.voice import Voice
-from app.models.generation import VideoPlanResponse, GenerationStatusResponse, GenerationStatus
-from app.agents import PlanGeneratorAgent, VideoStoryPlan, SegmentPrompt
-from app.integrations import ffmpeg_wrapper
 from app.integrations.minimax_client import MinimaxClient as MiniMaxClient
-from app.config import settings
+from app.models.generation import GenerationStatus, GenerationStatusResponse, VideoPlanResponse
 
 logger = logging.getLogger(__name__)
 
 
 def url_to_base64_data_url(url: str) -> str:
     """Convert a local file URL to a base64 data URL.
-    
+
     Args:
         url: Local URL like '/uploads/projects/xxx/file.jpg' or file path
-        
+
     Returns:
         Base64 data URL like 'data:image/jpeg;base64,...'
     """
     # Handle local URLs (starting with /uploads, /output, or /temp)
     if url.startswith("/uploads/"):
-        relative_path = url[len("/uploads/"):]
+        relative_path = url[len("/uploads/") :]
         file_path = settings.storage_uploads / relative_path
     elif url.startswith("/output/"):
-        relative_path = url[len("/output/"):]
+        relative_path = url[len("/output/") :]
         file_path = settings.storage_output / relative_path
     elif url.startswith("/temp/"):
-        relative_path = url[len("/temp/"):]
+        relative_path = url[len("/temp/") :]
         file_path = settings.storage_temp / relative_path
     elif url.startswith(("http://", "https://")):
         # Already a public URL, return as-is
@@ -50,19 +47,19 @@ def url_to_base64_data_url(url: str) -> str:
     else:
         # Assume it's a file path
         file_path = Path(url)
-    
+
     if not file_path.exists():
         raise ValueError(f"File not found: {file_path}")
-    
+
     # Read file and convert to base64
     with open(file_path, "rb") as f:
         file_bytes = f.read()
-    
+
     # Determine MIME type
     mime_type, _ = mimetypes.guess_type(str(file_path))
     if not mime_type:
         mime_type = "image/jpeg"  # Default to JPEG
-    
+
     # Create data URL
     b64_data = base64.b64encode(file_bytes).decode("utf-8")
     return f"data:{mime_type};base64,{b64_data}"
@@ -71,7 +68,7 @@ def url_to_base64_data_url(url: str) -> str:
 class OrchestratorService:
     """Service for orchestrating video generation workflow."""
 
-    def __init__(self, db: Optional[AsyncSession]):
+    def __init__(self, db: AsyncSession | None):
         self.db = db
         self.plan_agent = PlanGeneratorAgent()
         self.minimax_client = MiniMaxClient()
@@ -129,9 +126,7 @@ class OrchestratorService:
 
         # Update segments with generated prompts
         segments_query = (
-            select(Segment)
-            .where(Segment.project_id == project_id)
-            .order_by(Segment.index)
+            select(Segment).where(Segment.project_id == project_id).order_by(Segment.index)
         )
         segments_result = await self.db.execute(segments_query)
         segments = list(segments_result.scalars().all())
@@ -155,17 +150,19 @@ class OrchestratorService:
             title=title,
             segments=[
                 {
-                    "segment_index": (
-                        s.segment_index if isinstance(s, SegmentPrompt) else i
-                    ),
+                    "segment_index": (s.segment_index if isinstance(s, SegmentPrompt) else i),
                     "video_prompt": (
                         s.video_prompt if isinstance(s, SegmentPrompt) else s.get("video_prompt")
                     ),
                     "narration_text": (
-                        s.narration_text if isinstance(s, SegmentPrompt) else s.get("narration_text")
+                        s.narration_text
+                        if isinstance(s, SegmentPrompt)
+                        else s.get("narration_text")
                     ),
                     "end_frame_prompt": (
-                        s.end_frame_prompt if isinstance(s, SegmentPrompt) else s.get("end_frame_prompt")
+                        s.end_frame_prompt
+                        if isinstance(s, SegmentPrompt)
+                        else s.get("end_frame_prompt")
                     ),
                 }
                 for i, s in enumerate(plan_segments)
@@ -177,7 +174,7 @@ class OrchestratorService:
         self,
         project_id: str,
         user_id: str,
-        voice_name: Optional[str] = None,
+        voice_name: str | None = None,
     ) -> str:
         """Clone voice from project's audio sample.
 
@@ -236,7 +233,7 @@ class OrchestratorService:
             # Update project with voice_id and status
             project.voice_id = voice_id
             project.status = ProjectStatus.MEDIA_UPLOADED
-            
+
             # Save voice to voices table for reuse
             saved_voice_name = voice_name or f"Voice from {project.name}"
             voice_record = Voice(
@@ -246,11 +243,11 @@ class OrchestratorService:
                 description=f"Cloned from project: {project.name}",
             )
             self.db.add(voice_record)
-            
+
             await self.db.commit()
-            
+
             return voice_id
-            
+
         except Exception as e:
             logger.error(f"Voice cloning failed: {e}")
             # Rollback status change

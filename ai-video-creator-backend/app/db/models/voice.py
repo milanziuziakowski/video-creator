@@ -1,7 +1,8 @@
 """Voice database model for storing cloned voices."""
 
 import uuid
-from sqlalchemy import Column, String, ForeignKey, Text
+
+from sqlalchemy import Column, ForeignKey, String, Text
 from sqlalchemy.orm import relationship
 
 from app.db.base import Base, TimestampMixin
@@ -17,10 +18,10 @@ class Voice(Base, TimestampMixin):
 
     # MiniMax voice ID (the actual ID used for TTS)
     voice_id = Column(String(255), nullable=False, unique=True)
-    
+
     # User-friendly name for the voice
     name = Column(String(255), nullable=False)
-    
+
     # Optional description
     description = Column(Text)
 

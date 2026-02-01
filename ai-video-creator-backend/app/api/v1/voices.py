@@ -1,18 +1,18 @@
 """Voice API endpoints for managing cloned voices."""
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db
+from app.db.models.project import Project, ProjectStatus
 from app.db.models.user import User
 from app.db.models.voice import Voice
-from app.db.models.project import Project, ProjectStatus
 from app.models.voice import (
-    VoiceCreate,
-    VoiceResponse,
-    VoiceListResponse,
     AssignVoiceRequest,
+    VoiceCreate,
+    VoiceListResponse,
+    VoiceResponse,
 )
 
 router = APIRouter(prefix="/voices", tags=["voices"])
@@ -61,10 +61,7 @@ async def create_voice(
     existing = existing_result.scalar_one_or_none()
 
     if existing:
-        raise HTTPException(
-            status_code=400,
-            detail="A voice with this voice_id already exists"
-        )
+        raise HTTPException(status_code=400, detail="A voice with this voice_id already exists")
 
     voice = Voice(
         user_id=current_user.id,
@@ -127,7 +124,7 @@ async def assign_voice_to_project(
     current_user: User = Depends(get_current_user),
 ) -> dict:
     """Assign an existing cloned voice to a project.
-    
+
     This allows reusing a previously cloned voice without re-cloning.
     """
     # Verify the voice exists and belongs to the user
@@ -139,10 +136,7 @@ async def assign_voice_to_project(
     voice = voice_result.scalar_one_or_none()
 
     if not voice:
-        raise HTTPException(
-            status_code=404,
-            detail="Voice not found or does not belong to you"
-        )
+        raise HTTPException(status_code=404, detail="Voice not found or does not belong to you")
 
     # Verify the project exists and belongs to the user
     project_query = select(Project).where(
@@ -159,7 +153,7 @@ async def assign_voice_to_project(
     project.voice_id = request.voice_id
     if project.status == ProjectStatus.CREATED:
         project.status = ProjectStatus.MEDIA_UPLOADED
-    
+
     await db.commit()
 
     return {"voice_id": request.voice_id, "project_id": request.project_id}

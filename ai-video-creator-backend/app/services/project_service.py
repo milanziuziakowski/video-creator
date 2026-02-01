@@ -1,9 +1,9 @@
 """Project service for project CRUD operations."""
 
 import uuid
-from typing import Optional, List, Tuple
+
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
 from app.db.models.project import Project, ProjectStatus
@@ -23,7 +23,7 @@ class ProjectService:
         user_id: str,
         skip: int = 0,
         limit: int = 20,
-    ) -> Tuple[List[Project], int]:
+    ) -> tuple[list[Project], int]:
         """List projects for a user.
 
         Args:
@@ -57,7 +57,7 @@ class ProjectService:
         self,
         project_id: str,
         user_id: str,
-    ) -> Optional[Project]:
+    ) -> Project | None:
         """Get a project by ID.
 
         Args:
@@ -126,7 +126,7 @@ class ProjectService:
         project_id: str,
         user_id: str,
         data: ProjectUpdate,
-    ) -> Optional[Project]:
+    ) -> Project | None:
         """Update a project.
 
         Args:
@@ -258,7 +258,7 @@ class ProjectService:
         self,
         project_id: str,
         user_id: str,
-    ) -> Optional[Project]:
+    ) -> Project | None:
         """Finalize a project - concatenate all segments.
 
         Args:

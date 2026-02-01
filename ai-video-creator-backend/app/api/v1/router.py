@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-from app.api.v1 import auth, projects, segments, generation, media, voices
+from app.api.v1 import auth, generation, media, projects, segments, voices
 
 api_router = APIRouter()
 
