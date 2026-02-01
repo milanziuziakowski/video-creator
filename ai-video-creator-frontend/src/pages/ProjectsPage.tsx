@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useProjects, useDeleteProject } from '../api';
+import { useProjects } from '../api';
 import { ProjectCard, PageLoading } from '../components';
 
 export function ProjectsPage() {
   const [page, setPage] = useState(0);
   const limit = 12;
   const { data, isLoading, error } = useProjects(page * limit, limit);
-  const deleteProject = useDeleteProject();
 
   if (isLoading) {
     return <PageLoading message="Loading projects..." />;

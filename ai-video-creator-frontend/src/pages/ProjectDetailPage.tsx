@@ -15,13 +15,16 @@ import {
   useFinalizeProject,
   useDeleteProject,
 } from '../api';
-import { FileUpload, SegmentCard, PageLoading } from '../components';
+import { FileUpload, SegmentCard, PageLoading, VideoPlayer } from '../components';
 import type { ProjectStatus } from '../types';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
 export function ProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const [activeSegmentId, setActiveSegmentId] = useState<string | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [activeSegmentId, _setActiveSegmentId] = useState<string | null>(null);
 
   const { data: project, isLoading: projectLoading } = useProject(projectId!);
   const { data: segments, isLoading: segmentsLoading } = useProjectSegments(
@@ -207,20 +210,31 @@ export function ProjectDetailPage() {
       )}
 
       {/* Final Video Section */}
-      {project.finalVideoUrl && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Final Video</h2>
-          <video
+      {project.status === 'completed' && project.finalVideoUrl && (
+        <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg shadow-sm border border-green-200 p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">🎉 Video Complete!</h2>
+              <p className="text-sm text-gray-600">Your AI-generated video is ready</p>
+            </div>
+          </div>
+          
+          <VideoPlayer
             src={project.finalVideoUrl}
-            controls
-            className="w-full max-w-3xl mx-auto rounded-lg"
-            data-testid="final-video"
+            title={project.name}
+            className="max-w-3xl mx-auto mb-6"
           />
-          <div className="mt-4 text-center">
+          
+          <div className="flex flex-col sm:flex-row justify-center gap-4">
             <a
-              href={`/api/v1/media/download/${projectId}/final`}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700"
-              download
+              href={`${API_BASE_URL}/media/download/${projectId}/final`}
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 shadow-md hover:shadow-lg transition-all"
+              download={`${project.name}.mp4`}
               data-testid="download-button"
             >
               <svg
@@ -236,8 +250,20 @@ export function ProjectDetailPage() {
                   d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
                 />
               </svg>
-              Download Video
+              Download Video (MP4)
             </a>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(project.finalVideoUrl!);
+                alert('Video URL copied to clipboard!');
+              }}
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white text-gray-700 font-medium rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+              Copy Link
+            </button>
           </div>
         </div>
       )}

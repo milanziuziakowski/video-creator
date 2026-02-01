@@ -14,7 +14,7 @@ async def test_get_current_user(async_client: AsyncClient, test_user):
     assert data["email"] == test_user.email
     assert data["username"] == test_user.username
     assert data["name"] == test_user.name
-    assert data["is_active"] == True
+    assert data["isActive"] == True  # camelCase from APIModel
 
 
 @pytest.mark.asyncio
@@ -35,5 +35,5 @@ async def test_register_user(async_client: AsyncClient):
     assert data["username"] == "newuser"
     assert data["email"] == "newuser@example.com"
     assert data["name"] == "New User"
-    assert data["is_active"] == True
+    assert data["isActive"] == True  # camelCase from APIModel
     assert "id" in data

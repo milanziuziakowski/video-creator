@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Segment, SegmentStatus } from '../types';
+import { VideoThumbnail } from './VideoPlayer';
 
 interface SegmentCardProps {
   segment: Segment;
@@ -147,13 +148,13 @@ export function SegmentCard({
         {/* Video Preview */}
         {segment.videoUrl && (
           <div className="mb-4">
-            <h5 className="text-sm font-medium text-gray-700 mb-2">Preview</h5>
-            <video
+            <h5 className="text-sm font-medium text-gray-700 mb-2">Video Preview</h5>
+            <VideoThumbnail
               src={segment.videoUrl}
-              controls
-              className="w-full rounded-md"
-              data-testid="segment-video"
+              title={`Segment ${segment.index + 1} Preview`}
+              className="max-w-md"
             />
+            <p className="text-xs text-gray-500 mt-1">Click to preview in fullscreen</p>
           </div>
         )}
 
