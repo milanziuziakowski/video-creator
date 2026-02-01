@@ -7,12 +7,33 @@ from sqlalchemy import select
 from pathlib import Path
 
 from app.api.deps import get_current_user, get_db
+from app.config import settings
 from app.db.models.user import User
 from app.db.models.project import Project, ProjectStatus
 from app.services.media_service import MediaService
 from app.services.project_service import ProjectService
 
 router = APIRouter(prefix="/media", tags=["media"])
+
+
+def file_path_to_url(file_path: Path) -> str:
+    """Convert a file system path to a URL path.
+    
+    Converts paths like 'storage/uploads/projects/xxx/file.jpg' 
+    to '/uploads/projects/xxx/file.jpg'
+    """
+    # Get the path relative to storage_uploads
+    try:
+        relative_path = file_path.relative_to(settings.storage_uploads)
+        return f"/uploads/{relative_path.as_posix()}"
+    except ValueError:
+        # If not in uploads, try output
+        try:
+            relative_path = file_path.relative_to(settings.storage_output)
+            return f"/output/{relative_path.as_posix()}"
+        except ValueError:
+            # Return as-is if not in known directories
+            return str(file_path)
 
 
 @router.post("/upload/first-frame")
@@ -49,11 +70,14 @@ async def upload_first_frame(
         subfolder=f"projects/{project_id}",
     )
 
-    # Update project
-    project_service = ProjectService(db)
-    await project_service.set_first_frame_url(project_id, str(file_path))
+    # Convert to URL
+    url = file_path_to_url(file_path)
 
-    return {"url": str(file_path), "filename": file_path.name}
+    # Update project with URL
+    project_service = ProjectService(db)
+    await project_service.set_first_frame_url(project_id, url)
+
+    return {"url": url, "filename": file_path.name}
 
 
 @router.post("/upload/audio")
@@ -90,14 +114,19 @@ async def upload_audio_sample(
         subfolder=f"projects/{project_id}",
     )
 
-    # Update project
+    # Convert to URL
+    url = file_path_to_url(file_path)
+
+    # Update project with URL
     project_service = ProjectService(db)
-    await project_service.set_audio_sample_url(project_id, str(file_path))
+    await project_service.set_audio_sample_url(project_id, url)
 
     # Update status to media_uploaded if both are present
     await db.refresh(project)
     if project.first_frame_url and project.audio_sample_url:
         await project_service.update_project_status(project_id, ProjectStatus.MEDIA_UPLOADED)
+
+    return {"url": url, "filename": file_path.name}
 
     return {"url": str(file_path), "filename": file_path.name}
 
@@ -145,16 +174,17 @@ async def upload_segment_frame(
     )
 
     # Update segment
+    url = file_path_to_url(file_path)
     if frame_type == "first":
-        segment.first_frame_url = str(file_path)
+        segment.first_frame_url = url
     elif frame_type == "last":
-        segment.last_frame_url = str(file_path)
+        segment.last_frame_url = url
     else:
         raise HTTPException(status_code=400, detail="frame_type must be 'first' or 'last'")
 
     await db.flush()
 
-    return {"url": str(file_path), "filename": file_path.name, "frame_type": frame_type}
+    return {"url": url, "filename": file_path.name, "frame_type": frame_type}
 
 
 @router.get("/download/{project_id}/final")

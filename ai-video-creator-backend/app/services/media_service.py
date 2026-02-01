@@ -14,6 +14,26 @@ from app.db.models.project import Project
 logger = logging.getLogger(__name__)
 
 
+def url_to_file_path(url: str) -> Path:
+    """Convert a URL path like /output/file.mp4 to absolute file path.
+    
+    Args:
+        url: URL path starting with /output/, /temp/, or /uploads/
+        
+    Returns:
+        Absolute Path to the file
+    """
+    if url.startswith("/output/"):
+        return settings.storage_output / url[8:]  # Remove /output/
+    elif url.startswith("/temp/"):
+        return settings.storage_temp / url[6:]  # Remove /temp/
+    elif url.startswith("/uploads/"):
+        return settings.STORAGE_PATH / "uploads" / url[9:]  # Remove /uploads/
+    else:
+        # Assume it's already a path
+        return Path(url)
+
+
 class MediaService:
     """Service for media file operations."""
 
@@ -81,58 +101,71 @@ class MediaService:
         return file_path
 
     async def finalize_project_video(self, project: Project) -> str:
-        """Concatenate all segment videos and audio into final video.
+        """Concatenate all segment videos with properly synced audio into final video.
+
+        Each segment's audio is adjusted to match its video duration before muxing.
+        Then all muxed segments are concatenated into the final video.
 
         Args:
             project: Project with all segments
 
         Returns:
-            Path to final video
+            URL path to final video
         """
-        # Collect video files in order
-        video_paths: list[Path] = []
-        audio_paths: list[Path] = []
+        muxed_segment_paths: list[Path] = []
+        temp_files: list[Path] = []
 
-        for segment in sorted(project.segments, key=lambda s: s.index):
-            if segment.video_url:
-                video_path = Path(segment.video_url)
+        try:
+            for segment in sorted(project.segments, key=lambda s: s.index):
+                if not segment.video_url:
+                    logger.warning(f"Segment {segment.id} has no video, skipping")
+                    continue
+
+                # Convert URL to file path
+                video_path = url_to_file_path(segment.video_url)
+                
                 if not video_path.exists():
-                    # Download if URL
-                    video_path = await self.download_file(
-                        segment.video_url, f"segment_{segment.id}.mp4"
+                    logger.error(f"Video file not found: {video_path}")
+                    raise ValueError(f"Video file not found for segment {segment.index + 1}")
+
+                if segment.audio_url:
+                    audio_path = url_to_file_path(segment.audio_url)
+                    
+                    if not audio_path.exists():
+                        logger.error(f"Audio file not found: {audio_path}")
+                        raise ValueError(f"Audio file not found for segment {segment.index + 1}")
+
+                    # Mux video with audio (audio will be adjusted to video length)
+                    muxed_path = settings.storage_temp / f"muxed_{segment.id}.mp4"
+                    await ffmpeg_wrapper.mux_segment_video_audio(
+                        video_path, audio_path, muxed_path
                     )
-                video_paths.append(video_path)
+                    muxed_segment_paths.append(muxed_path)
+                    temp_files.append(muxed_path)
+                    logger.info(f"Muxed segment {segment.index + 1}: {muxed_path}")
+                else:
+                    # No audio, use video as-is
+                    muxed_segment_paths.append(video_path)
+                    logger.info(f"Segment {segment.index + 1} has no audio, using video only")
 
-            if segment.audio_url:
-                audio_path = Path(segment.audio_url)
-                if audio_path.exists():
-                    audio_paths.append(audio_path)
+            if not muxed_segment_paths:
+                raise ValueError("No video segments to concatenate")
 
-        if not video_paths:
-            raise ValueError("No video segments to concatenate")
-
-        # Concatenate videos
-        concat_video_path = settings.storage_output / f"concat_{project.id}.mp4"
-        await ffmpeg_wrapper.concat_videos(video_paths, concat_video_path)
-
-        # Concatenate audio if available
-        if audio_paths:
-            concat_audio_path = settings.storage_temp / f"concat_audio_{project.id}.mp3"
-            await ffmpeg_wrapper.concat_audios(audio_paths, concat_audio_path)
-
-            # Mux video and audio
+            # Concatenate all muxed segments
             final_path = settings.storage_output / f"final_{project.id}.mp4"
-            await ffmpeg_wrapper.mux_audio_video(
-                concat_video_path, concat_audio_path, final_path
-            )
+            await ffmpeg_wrapper.concat_videos(muxed_segment_paths, final_path)
+            logger.info(f"Final video created: {final_path}")
 
-            # Clean up
-            concat_video_path.unlink()
-            concat_audio_path.unlink()
+            # Return as URL path
+            return f"/output/final_{project.id}.mp4"
 
-            return str(final_path)
-
-        return str(concat_video_path)
+        finally:
+            # Clean up temp muxed files
+            for temp_file in temp_files:
+                try:
+                    temp_file.unlink(missing_ok=True)
+                except Exception as e:
+                    logger.warning(f"Failed to clean up temp file {temp_file}: {e}")
 
     async def extract_last_frame(
         self,

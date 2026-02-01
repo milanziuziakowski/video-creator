@@ -1,7 +1,9 @@
 """Orchestrator service for video generation workflow."""
 
+import base64
 import uuid
 import logging
+import mimetypes
 from typing import Optional
 from pathlib import Path
 
@@ -10,6 +12,7 @@ from sqlalchemy import select
 
 from app.db.models.project import Project, ProjectStatus
 from app.db.models.segment import Segment, SegmentStatus
+from app.db.models.voice import Voice
 from app.models.generation import VideoPlanResponse, GenerationStatusResponse, GenerationStatus
 from app.agents import PlanGeneratorAgent, VideoStoryPlan, SegmentPrompt
 from app.integrations import ffmpeg_wrapper
@@ -17,6 +20,52 @@ from app.integrations.minimax_client import MinimaxClient as MiniMaxClient
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+
+
+def url_to_base64_data_url(url: str) -> str:
+    """Convert a local file URL to a base64 data URL.
+    
+    Args:
+        url: Local URL like '/uploads/projects/xxx/file.jpg' or file path
+        
+    Returns:
+        Base64 data URL like 'data:image/jpeg;base64,...'
+    """
+    # Handle local URLs (starting with /uploads, /output, or /temp)
+    if url.startswith("/uploads/"):
+        relative_path = url[len("/uploads/"):]
+        file_path = settings.storage_uploads / relative_path
+    elif url.startswith("/output/"):
+        relative_path = url[len("/output/"):]
+        file_path = settings.storage_output / relative_path
+    elif url.startswith("/temp/"):
+        relative_path = url[len("/temp/"):]
+        file_path = settings.storage_temp / relative_path
+    elif url.startswith(("http://", "https://")):
+        # Already a public URL, return as-is
+        return url
+    elif url.startswith("data:"):
+        # Already a data URL, return as-is
+        return url
+    else:
+        # Assume it's a file path
+        file_path = Path(url)
+    
+    if not file_path.exists():
+        raise ValueError(f"File not found: {file_path}")
+    
+    # Read file and convert to base64
+    with open(file_path, "rb") as f:
+        file_bytes = f.read()
+    
+    # Determine MIME type
+    mime_type, _ = mimetypes.guess_type(str(file_path))
+    if not mime_type:
+        mime_type = "image/jpeg"  # Default to JPEG
+    
+    # Create data URL
+    b64_data = base64.b64encode(file_bytes).decode("utf-8")
+    return f"data:{mime_type};base64,{b64_data}"
 
 
 class OrchestratorService:
@@ -128,12 +177,14 @@ class OrchestratorService:
         self,
         project_id: str,
         user_id: str,
+        voice_name: Optional[str] = None,
     ) -> str:
         """Clone voice from project's audio sample.
 
         Args:
             project_id: Project ID
             user_id: User ID
+            voice_name: Optional name for the saved voice
 
         Returns:
             Cloned voice ID
@@ -185,6 +236,17 @@ class OrchestratorService:
             # Update project with voice_id and status
             project.voice_id = voice_id
             project.status = ProjectStatus.MEDIA_UPLOADED
+            
+            # Save voice to voices table for reuse
+            saved_voice_name = voice_name or f"Voice from {project.name}"
+            voice_record = Voice(
+                user_id=user_id,
+                voice_id=voice_id,
+                name=saved_voice_name,
+                description=f"Cloned from project: {project.name}",
+            )
+            self.db.add(voice_record)
+            
             await self.db.commit()
             
             return voice_id
@@ -245,10 +307,17 @@ class OrchestratorService:
         if not first_frame_url:
             raise ValueError("No first frame available")
 
+        # Convert local URL to base64 data URL for MiniMax API
+        try:
+            first_frame_data_url = url_to_base64_data_url(first_frame_url)
+        except ValueError as e:
+            logger.error(f"Failed to convert first frame to base64: {e}")
+            raise ValueError(f"First frame file not found: {first_frame_url}")
+
         # Generate video
         task_id = await self.minimax_client.generate_video(
             prompt=segment.video_prompt or "",
-            first_frame_image=first_frame_url,
+            first_frame_image=first_frame_data_url,
             duration=project.segment_len_sec,
             resolution="768P",
         )
@@ -283,11 +352,13 @@ class OrchestratorService:
             )
 
             # Save audio file
-            audio_path = settings.storage_output / f"audio_{segment.id}.mp3"
+            audio_filename = f"audio_{segment.id}.mp3"
+            audio_path = settings.storage_output / audio_filename
             with open(audio_path, "wb") as f:
                 f.write(audio_bytes)
 
-            segment.audio_url = str(audio_path)
+            # Store URL path (not file path) for frontend
+            segment.audio_url = f"/output/{audio_filename}"
             if self.db:
                 await self.db.flush()
 

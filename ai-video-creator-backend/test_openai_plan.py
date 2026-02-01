@@ -47,6 +47,8 @@ CONFIG = {
 SYSTEM_PROMPT = """You are an expert video story planner specializing in creating cohesive, 
 visually compelling narratives for short-form video content.
 
+IMPORTANT: Generate all output in POLISH language.
+
 Your task is to break down a user's story concept into video segments with:
 1. Detailed video prompts (scene composition, lighting, camera movement, atmosphere)
 2. Voice-over narration text
@@ -70,7 +72,9 @@ Guidelines for end-frame prompts:
 - This becomes the starting point for the next segment
 - Ensure smooth transitions between segments
 
-Maintain consistent visual style, characters, and atmosphere throughout all segments."""
+Maintain consistent visual style, characters, and atmosphere throughout all segments.
+
+All text must be in Polish language (video prompts, narration, and end-frame descriptions)."""
 
 
 async def test_plan_generation():

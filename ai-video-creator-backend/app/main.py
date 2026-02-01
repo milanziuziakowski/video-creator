@@ -3,6 +3,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.api.v1.router import api_router
@@ -14,6 +15,9 @@ async def lifespan(app: FastAPI):
     """Application lifespan events."""
     # Startup
     await init_db()
+    # Ensure storage directories exist
+    settings.storage_uploads.mkdir(parents=True, exist_ok=True)
+    settings.storage_output.mkdir(parents=True, exist_ok=True)
     yield
     # Shutdown
     pass
@@ -39,6 +43,12 @@ def create_app() -> FastAPI:
 
     # Include API router
     app.include_router(api_router, prefix="/api/v1")
+
+    # Mount static files for serving uploaded media
+    # This serves files from storage/uploads at /uploads URL path
+    app.mount("/uploads", StaticFiles(directory=settings.storage_uploads), name="uploads")
+    app.mount("/output", StaticFiles(directory=settings.storage_output), name="output")
+    app.mount("/temp", StaticFiles(directory=settings.storage_temp), name="temp")
 
     # Health check endpoint
     @app.get("/health")

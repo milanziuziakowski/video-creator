@@ -26,6 +26,13 @@ from app.models.generation import (
     FL2VGenerateRequest,
     FL2VGenerateResponse,
 )
+from app.models.voice import (
+    VoiceBase,
+    VoiceCreate,
+    VoiceResponse,
+    VoiceListResponse,
+    AssignVoiceRequest,
+)
 
 __all__ = [
     "UserResponse",
@@ -48,4 +55,9 @@ __all__ = [
     "CameraCommand",
     "FL2VGenerateRequest",
     "FL2VGenerateResponse",
+    "VoiceBase",
+    "VoiceCreate",
+    "VoiceResponse",
+    "VoiceListResponse",
+    "AssignVoiceRequest",
 ]

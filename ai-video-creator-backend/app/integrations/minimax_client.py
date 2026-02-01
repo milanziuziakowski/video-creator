@@ -157,7 +157,7 @@ class MinimaxClient:
         voice_id: str,
         model: str = "speech-02-hd",
         speed: float = 1.0,
-        output_format: str = "mp3",
+        audio_format: str = "mp3",
     ) -> bytes:
         """Generate audio from text using cloned voice.
 
@@ -166,7 +166,7 @@ class MinimaxClient:
             voice_id: Cloned voice ID
             model: TTS model to use
             speed: Speech speed (0.5-2.0)
-            output_format: Output format (mp3, wav, etc.)
+            audio_format: Audio format (mp3, wav, flac)
 
         Returns:
             Audio bytes
@@ -185,45 +185,48 @@ class MinimaxClient:
                 json={
                     "model": model,
                     "text": text,
+                    "stream": False,
                     "voice_setting": {
                         "voice_id": voice_id,
                         "speed": speed,
                     },
                     "audio_setting": {
-                        "format": output_format,
+                        "format": audio_format,
+                        "sample_rate": 32000,
+                        "bitrate": 128000,
                     },
+                    "output_format": "hex",  # MiniMax returns hex-encoded audio by default
                 },
             )
 
-            # For streaming audio, MiniMax returns binary directly
-            # or JSON with base64 encoded audio
-            content_type = response.headers.get("content-type", "")
+            if response.status_code != 200:
+                logger.error(f"MiniMax T2A error: {response.status_code} - {response.text}")
+                raise Exception(f"MiniMax T2A error: {response.text}")
 
-            if "audio" in content_type:
-                return response.content
-            else:
-                data = response.json()
-                
-                # Handle different response formats
-                if "data" in data:
-                    if isinstance(data["data"], dict) and "audio" in data["data"]:
-                        # Base64 encoded audio
-                        audio_b64 = data["data"]["audio"]
-                        # Add padding if needed
-                        missing_padding = len(audio_b64) % 4
-                        if missing_padding:
-                            audio_b64 += '=' * (4 - missing_padding)
-                        return base64.b64decode(audio_b64)
-                    elif isinstance(data["data"], str):
-                        # Might be base64 string directly
-                        audio_b64 = data["data"]
-                        missing_padding = len(audio_b64) % 4
-                        if missing_padding:
-                            audio_b64 += '=' * (4 - missing_padding)
-                        return base64.b64decode(audio_b64)
-                
-                # If we get here, the format is unexpected
-                raise Exception(f"Unexpected TTS response format: {data}")
+            data = response.json()
+            
+            # Check for API errors
+            base_resp = data.get("base_resp", {})
+            if base_resp.get("status_code") != 0:
+                error_msg = base_resp.get("status_msg", "Unknown error")
+                raise Exception(f"MiniMax T2A error: {error_msg}")
+            
+            # Extract audio data - MiniMax returns hex-encoded audio in data.audio
+            if "data" in data and data["data"]:
+                audio_data = data["data"]
+                if isinstance(audio_data, dict) and "audio" in audio_data:
+                    # Hex-encoded audio string
+                    audio_hex = audio_data["audio"]
+                    logger.info(f"Received hex-encoded audio, length: {len(audio_hex)} chars")
+                    return bytes.fromhex(audio_hex)
+                elif isinstance(audio_data, str):
+                    # Direct hex string
+                    logger.info(f"Received direct hex audio, length: {len(audio_data)} chars")
+                    return bytes.fromhex(audio_data)
+            
+            # If we get here, the format is unexpected
+            logger.error(f"Unexpected TTS response format: {data}")
+            raise Exception(f"Unexpected TTS response format: {data}")
 
     # -------------------------------------------------------------------------
     # Video Operations - First & Last Frame Video Generation (FL2V)

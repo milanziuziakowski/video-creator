@@ -3,12 +3,16 @@
 import asyncio
 import logging
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Optional
 
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+
+# Thread pool for running subprocess commands (Windows compatibility)
+_executor = ThreadPoolExecutor(max_workers=4)
 
 
 class FFmpegWrapper:
@@ -18,8 +22,8 @@ class FFmpegWrapper:
         self.ffmpeg_path = ffmpeg_path
         self.ffprobe_path = ffprobe_path
 
-    async def _run_command(self, cmd: list[str]) -> tuple[str, str]:
-        """Run a command asynchronously.
+    def _run_command_sync(self, cmd: list[str]) -> tuple[str, str]:
+        """Run a command synchronously (for use in thread pool).
 
         Args:
             cmd: Command and arguments
@@ -27,18 +31,29 @@ class FFmpegWrapper:
         Returns:
             Tuple of (stdout, stderr)
         """
-        process = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
         )
-        stdout, stderr = await process.communicate()
 
-        if process.returncode != 0:
-            logger.error(f"FFmpeg command failed: {stderr.decode()}")
-            raise Exception(f"FFmpeg error: {stderr.decode()}")
+        if result.returncode != 0:
+            logger.error(f"FFmpeg command failed: {result.stderr}")
+            raise Exception(f"FFmpeg error: {result.stderr}")
 
-        return stdout.decode(), stderr.decode()
+        return result.stdout, result.stderr
+
+    async def _run_command(self, cmd: list[str]) -> tuple[str, str]:
+        """Run a command asynchronously using thread pool (Windows compatible).
+
+        Args:
+            cmd: Command and arguments
+
+        Returns:
+            Tuple of (stdout, stderr)
+        """
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(_executor, self._run_command_sync, cmd)
 
     async def extract_last_frame(
         self,
@@ -71,6 +86,8 @@ class FFmpegWrapper:
             "1",
             "-q:v",
             "2",
+            "-update",
+            "1",
             str(output_path),
         ]
 
@@ -104,6 +121,8 @@ class FFmpegWrapper:
             "1",
             "-q:v",
             "2",
+            "-update",
+            "1",
             str(output_path),
         ]
 
@@ -279,6 +298,119 @@ class FFmpegWrapper:
                 "duration": float(stream.get("duration", 0)),
             }
         return {}
+
+    async def adjust_audio_duration(
+        self,
+        audio_path: Path,
+        target_duration: float,
+        output_path: Path,
+    ) -> Path:
+        """Adjust audio duration to match target duration.
+
+        If audio is longer, it will be trimmed.
+        If audio is shorter, it will be padded with silence.
+
+        Args:
+            audio_path: Path to input audio file
+            target_duration: Target duration in seconds
+            output_path: Path for output audio
+
+        Returns:
+            Path to adjusted audio file
+        """
+        current_duration = await self.probe_duration(audio_path)
+        
+        if abs(current_duration - target_duration) < 0.1:
+            # Duration is close enough, just copy
+            import shutil
+            shutil.copy(audio_path, output_path)
+            return output_path
+        
+        if current_duration > target_duration:
+            # Trim audio
+            cmd = [
+                self.ffmpeg_path,
+                "-y",
+                "-i",
+                str(audio_path),
+                "-t",
+                str(target_duration),
+                "-c:a",
+                "libmp3lame",
+                "-q:a",
+                "2",
+                str(output_path),
+            ]
+        else:
+            # Pad with silence
+            silence_duration = target_duration - current_duration
+            cmd = [
+                self.ffmpeg_path,
+                "-y",
+                "-i",
+                str(audio_path),
+                "-af",
+                f"apad=pad_dur={silence_duration}",
+                "-t",
+                str(target_duration),
+                "-c:a",
+                "libmp3lame",
+                "-q:a",
+                "2",
+                str(output_path),
+            ]
+        
+        await self._run_command(cmd)
+        return output_path
+
+    async def mux_segment_video_audio(
+        self,
+        video_path: Path,
+        audio_path: Path,
+        output_path: Path,
+    ) -> Path:
+        """Mux video and audio for a single segment, adjusting audio to video length.
+
+        Args:
+            video_path: Path to video file
+            audio_path: Path to audio file
+            output_path: Path for output file
+
+        Returns:
+            Path to muxed file
+        """
+        # Get video duration
+        video_duration = await self.probe_duration(video_path)
+        
+        # Adjust audio to match video duration
+        adjusted_audio = output_path.parent / f"adjusted_{output_path.stem}.mp3"
+        await self.adjust_audio_duration(audio_path, video_duration, adjusted_audio)
+        
+        # Mux video with adjusted audio
+        cmd = [
+            self.ffmpeg_path,
+            "-y",
+            "-i",
+            str(video_path),
+            "-i",
+            str(adjusted_audio),
+            "-c:v",
+            "copy",
+            "-c:a",
+            "aac",
+            "-map",
+            "0:v:0",
+            "-map",
+            "1:a:0",
+            str(output_path),
+        ]
+
+        await self._run_command(cmd)
+        
+        # Clean up adjusted audio
+        adjusted_audio.unlink(missing_ok=True)
+        
+        return output_path
 
 
 # Global instance
