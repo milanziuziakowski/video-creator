@@ -64,7 +64,7 @@
 
 | ID | Requirement | Priority |
 |----|-------------|----------|
-| FR-AUTH-01 | System musi obsługiwać logowanie przez Azure Entra ID | P0 |
+| FR-AUTH-01 | System musi obsługiwać logowanie przez OAuth2 z tokenami JWT | P0 |
 | FR-AUTH-02 | System musi wyświetlać ekran logowania dla niezalogowanych użytkowników | P0 |
 | FR-AUTH-03 | System musi przechowywać token sesji | P0 |
 | FR-AUTH-04 | System musi obsługiwać wylogowanie | P0 |
@@ -173,7 +173,7 @@
 | ID | Requirement |
 |----|-------------|
 | NFR-SEC-01 | Wszystkie dane muszą być przesyłane przez HTTPS |
-| NFR-SEC-02 | Autentykacja musi używać Azure Entra ID |
+| NFR-SEC-02 | Autentykacja musi używać OAuth2 z tokenami JWT |
 | NFR-SEC-03 | API keys muszą być przechowywane w zmiennych środowiskowych |
 | NFR-SEC-04 | Użytkownicy mogą widzieć tylko swoje projekty |
 | NFR-SEC-05 | Sesje muszą wygasać po 24h nieaktywności |
@@ -381,7 +381,7 @@ Kryteria akceptacji:
 
 ### Phase 1: Foundation (Week 1-2)
 - [x] Setup projektu React + TypeScript
-- [x] Konfiguracja Azure Entra ID
+- [x] Konfiguracja OAuth2 JWT Auth
 - [x] Podstawowy backend FastAPI
 - [x] Database schema
 
@@ -414,7 +414,7 @@ Kryteria akceptacji:
 | MiniMax API downtime | Medium | High | Retry logic, user communication |
 | High generation costs | High | Medium | Rate limiting, cost monitoring |
 | Slow generation time | High | Medium | Progress feedback, async UX |
-| Azure Entra config issues | Low | High | Thorough testing, documentation |
+| OAuth2 JWT config issues | Low | High | Thorough testing, documentation |
 | FFmpeg compatibility | Low | Medium | Docker containerization |
 
 ---

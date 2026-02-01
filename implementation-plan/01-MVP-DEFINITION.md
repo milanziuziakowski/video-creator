@@ -18,8 +18,8 @@
 ## Najmniejszy zestaw funkcjonalności (MVP Scope)
 
 ### 1. Autentykacja użytkownika
-- [ ] Logowanie przez Azure Entra ID (Microsoft Account)
-- [ ] Ekran logowania z przyciskiem "Zaloguj się przez Microsoft"
+- [ ] Logowanie przez OAuth2 z tokenami JWT
+- [ ] Ekran logowania z formularzem username/password
 - [ ] Zabezpieczenie dostępu do aplikacji
 
 ### 2. Upload i inicjalizacja projektu
@@ -113,11 +113,11 @@
 | CI/CD pipeline | Przechodzi | GitHub Actions - build + testy |
 | Integracja MiniMax API | Działa | Testy integracyjne z prawdziwym API |
 | Integracja OpenAI API | Działa | Testy generowania planu |
-| Azure Entra auth | Działa | Ręczny test logowania |
+| OAuth2 JWT auth | Działa | Ręczny test logowania |
 | Deploy na Azure | Działa | Aplikacja dostępna pod URL |
 
 ### Kryteria akceptacji użytkownika:
-1. ✅ Użytkownik może się zalogować przez Microsoft Account
+1. ✅ Użytkownik może się zalogować przez OAuth2 JWT
 2. ✅ Użytkownik może załadować obraz i audio
 3. ✅ Użytkownik widzi proponowane prompty od AI
 4. ✅ Użytkownik może zatwierdzić lub edytować prompt
@@ -159,8 +159,6 @@
 #### Azure Authentication:
 | Package | Version | Description |
 |---------|---------|-------------|
-| `@azure/msal-browser` | `5.1.0` | Microsoft Authentication Library core for browser-based SPAs |
-| `@azure/msal-react` | `5.0.3` | React bindings for MSAL with hooks and context providers |
 
 #### Styling:
 | Package | Version | Description |
@@ -184,14 +182,13 @@
 #### Version Compatibility Matrix (verified January 2026):
 | Dependency | Requires | Verified With |
 |------------|----------|---------------|
-| `@azure/msal-react` v5 | React 19 | ✅ react@19.2.4 |
 | `@tanstack/react-query` v5 | React 18+ | ✅ react@19.2.4 |
 | `react-router-dom` v7 | React 18+ | ✅ react@19.2.4 |
 | `@vitejs/plugin-react` v5 | React 16.9+, Vite 6+ | ✅ react@19.2.4, vite@7.3.1 |
 | `@types/react` v19 | TypeScript 4.7+ | ✅ typescript@5.9.3 |
 | `tailwindcss` v4 | PostCSS 8+ | ✅ Built-in |
 
-> **Note:** All versions sourced from npm registry. MSAL React v5 is the first version with official React 19 support.
+> **Note:** All versions sourced from npm registry.
 
 ### Backend:
 - **Python 3.11+** with FastAPI
@@ -228,8 +225,6 @@
     "react-dom": "^19.2.4",
     "react-router-dom": "^7.13.0",
     "@tanstack/react-query": "^5.90.20",
-    "@azure/msal-browser": "^5.1.0",
-    "@azure/msal-react": "^5.0.3",
     "axios": "^1.13.4",
     "tailwindcss": "^4.1.18"
   },

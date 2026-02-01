@@ -700,7 +700,7 @@ az staticwebapp secrets list \
 - [ ] Resource group created
 - [ ] Service principal created with Contributor role
 - [ ] GitHub secrets configured
-- [ ] Azure Entra ID app registration complete
+- [ ] JWT authentication configured
 - [ ] Database provisioned and migrations ready
 
 ### For Each Release

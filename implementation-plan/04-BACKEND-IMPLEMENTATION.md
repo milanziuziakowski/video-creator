@@ -60,10 +60,11 @@ OPENAI_API_KEY=sk-proj-your-openai-api-key
 MINIMAX_API_KEY=sk-api-your-minimax-api-key
 
 # ============================================================================
-# Azure Entra ID (for token validation)
+# JWT Authentication Configuration
 # ============================================================================
-AZURE_TENANT_ID=your-tenant-id
-AZURE_CLIENT_ID=your-client-id
+JWT_SECRET_KEY=your-super-secret-jwt-key-64-chars-minimum
+JWT_ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=1440
 
 # ============================================================================
 # Database Configuration
@@ -185,9 +186,10 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
     MINIMAX_API_KEY: str = ""
     
-    # Azure Entra ID
-    AZURE_TENANT_ID: str = ""
-    AZURE_CLIENT_ID: str = ""
+    # JWT Authentication
+    JWT_SECRET_KEY: str = ""
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     
     # Database
     DATABASE_URL: str = "sqlite+aiosqlite:///./video_creator.db"
@@ -1408,7 +1410,7 @@ def mock_user():
     from app.db.models.user import User
     return User(
         id="test-user-id",
-        entra_id="test-entra-id",
+        username="testuser",
         email="test@example.com",
         name="Test User",
     )

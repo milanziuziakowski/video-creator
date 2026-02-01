@@ -36,11 +36,9 @@ param openaiApiKey string
 @secure()
 param minimaxApiKey string
 
-@description('Azure Entra ID Tenant ID')
-param azureTenantId string
-
-@description('Azure Entra ID Client ID (App Registration)')
-param azureClientId string
+@description('JWT Secret Key for authentication')
+@secure()
+param jwtSecretKey string
 
 @description('Frontend deployment type: staticWebApp or containerApp')
 @allowed(['staticWebApp', 'containerApp'])

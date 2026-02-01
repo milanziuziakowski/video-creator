@@ -73,69 +73,52 @@ export default {
 ```bash
 # API
 VITE_API_URL=http://localhost:8000/api/v1
-
-# Azure Entra ID
-VITE_AZURE_CLIENT_ID=your-client-id-here
-VITE_AZURE_TENANT_ID=your-tenant-id-here
-VITE_AZURE_REDIRECT_URI=http://localhost:5173
 ```
 
 ---
 
-## 2. MSAL Authentication Setup
+## 2. JWT Authentication Setup
 
-### 2.1 Auth Configuration (src/auth/msalConfig.ts)
+### 2.1 Auth Configuration (src/auth/authConfig.ts)
 
 ```typescript
-import { Configuration, LogLevel, PublicClientApplication } from "@azure/msal-browser";
+export interface LoginCredentials {
+  username: string;
+  password: string;
+}
 
-const clientId = import.meta.env.VITE_AZURE_CLIENT_ID;
-const tenantId = import.meta.env.VITE_AZURE_TENANT_ID;
-const redirectUri = import.meta.env.VITE_AZURE_REDIRECT_URI;
+export interface User {
+  id: string;
+  username: string;
+  email: string;
+  name: string;
+}
 
-export const msalConfig: Configuration = {
-  auth: {
-    clientId,
-    authority: `https://login.microsoftonline.com/${tenantId}`,
-    redirectUri,
-    postLogoutRe+-directUri: redirectUri,
-    navigateToLoginRequestUrl: true,
-  },
-  cache: {
-    cacheLocation: "sessionStorage", // More secure than localStorage
-    storeAuthStateInCookie: false,
-  },
-  system: {
-    loggerOptions: {
-      loggerCallback: (level, message, containsPii) => {
-        if (containsPii) return;
-        if (level === LogLevel.Error) console.error(message);
-        if (level === LogLevel.Warning) console.warn(message);
-      },
-      logLevel: LogLevel.Warning,
-    },
-  },
-};
+export interface AuthResponse {
+  access_token: string;
+  token_type: string;
+  expires_in: number;
+  user: User;
+}
 
-export const loginRequest = {
-  scopes: ["User.Read", "openid", "profile", "email"],
-};
-
-export const apiScopes = {
-  scopes: [`api://${clientId}/access_as_user`],
-};
-
-// Create MSAL instance
-export const msalInstance = new PublicClientApplication(msalConfig);
+export const AUTH_STORAGE_KEY = 'ai-video-creator-auth';
 ```
 
 ### 2.2 Auth Provider (src/auth/AuthProvider.tsx)
 
 ```tsx
-import { ReactNode, useEffect, useState } from "react";
-import { MsalProvider, useMsal, useIsAuthenticated } from "@azure/msal-react";
-import { InteractionStatus } from "@azure/msal-browser";
-import { msalInstance, loginRequest } from "./msalConfig";
+import { ReactNode, createContext, useContext, useEffect, useState } from "react";
+
+interface AuthContextType {
+  user: User | null;
+  token: string | null;
+  login: (credentials: LoginCredentials) => Promise<void>;
+  logout: () => void;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+}
+
+const AuthContext = createContext<AuthContextType | null>(null);
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -154,24 +137,64 @@ function AuthInitializer({ children }: { children: ReactNode }) {
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    const initializeMsal = async () => {
+  const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Load auth state from localStorage on startup
+    const authData = localStorage.getItem(AUTH_STORAGE_KEY);
+    if (authData) {
       try {
-        await instance.initialize();
-        const response = await instance.handleRedirectPromise();
-        if (response) {
-          instance.setActiveAccount(response.account);
-        }
-        setIsInitialized(true);
+        const parsed = JSON.parse(authData);
+        setToken(parsed.access_token);
+        setUser(parsed.user);
       } catch (error) {
-        console.error("MSAL initialization error:", error);
-        setIsInitialized(true);
+        console.error('Failed to parse auth data:', error);
+        localStorage.removeItem(AUTH_STORAGE_KEY);
       }
-    };
+    }
+    setIsLoading(false);
+  }, []);
 
-    initializeMsal();
-  }, [instance]);
+  const login = async (credentials: LoginCredentials) => {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(credentials),
+    });
 
-  if (!isInitialized || inProgress === InteractionStatus.Startup) {
+    if (!response.ok) {
+      throw new Error('Login failed');
+    }
+
+    const authData: AuthResponse = await response.json();
+    
+    setToken(authData.access_token);
+    setUser(authData.user);
+    
+    // Store in localStorage
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authData));
+  };
+
+  const logout = () => {
+    setUser(null);
+    setToken(null);
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+  };
+
+  const contextValue: AuthContextType = {
+    user,
+    token,
+    login,
+    logout,
+    isAuthenticated: !!user && !!token,
+    isLoading,
+  };
+
+  if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-dark-200">
         <div className="animate-pulse text-white">Loading...</div>
@@ -179,42 +202,26 @@ function AuthInitializer({ children }: { children: ReactNode }) {
     );
   }
 
-  return <>{children}</>;
+  return (
+    <AuthContext.Provider value={contextValue}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 ```
 
-### 2.3 Auth Hooks (src/auth/useAuth.ts)
+### 2.3 Auth Hook (src/auth/useAuth.ts)
 
 ```typescript
-import { useCallback } from "react";
-import { useMsal, useAccount, useIsAuthenticated } from "@azure/msal-react";
-import { InteractionStatus } from "@azure/msal-browser";
-import { loginRequest, apiScopes } from "./msalConfig";
-
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-}
+import { useContext } from "react";
 
 export function useAuth() {
-  const { instance, accounts, inProgress } = useMsal();
-  const account = useAccount(accounts[0] || {});
-  const isAuthenticated = useIsAuthenticated();
-
-  const login = useCallback(async () => {
-    try {
-      await instance.loginRedirect(loginRequest);
-    } catch (error) {
-      console.error("Login error:", error);
-      throw error;
-    }
-  }, [instance]);
-
-  const logout = useCallback(async () => {
-    try {
-      await instance.logoutRedirect({
-        postLogoutRedirectUri: "/",
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+}
       });
     } catch (error) {
       console.error("Logout error:", error);
@@ -1948,5 +1955,5 @@ After implementing the frontend:
    npm run build
    ```
 
-4. **Proceed to Azure Entra Setup:**
-   - See [06-AZURE-ENTRA-SETUP.md](./06-AZURE-ENTRA-SETUP.md)
+4. **Proceed to JWT Authentication:**
+   - Your JWT authentication is now configured and ready to use

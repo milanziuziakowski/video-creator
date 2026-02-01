@@ -131,62 +131,48 @@ import path from "path";
 const authFile = path.join(__dirname, "../.auth/user.json");
 
 /**
- * Since we use Azure Entra ID, we need to handle authentication
+ * Since we use JWT authentication, we need to handle authentication
  * differently in E2E tests. Options:
  * 
  * 1. Mock authentication (recommended for CI)
- * 2. Use test tenant with test user
+ * 2. Use test credentials with actual login
  * 3. Store authenticated state from manual login
  */
 
 setup("authenticate", async ({ page }) => {
   // Option 1: Mock authentication for testing
-  // The frontend should check for a test mode and skip MSAL
+  // The frontend should check for a test mode and skip actual login
   
   if (process.env.E2E_MOCK_AUTH === "true") {
-    // Set mock auth cookie/storage
+    // Set mock auth data in localStorage
     await page.goto("/");
     await page.evaluate(() => {
-      // Set mock user in session storage
-      sessionStorage.setItem(
-        "msal.account.keys",
-        JSON.stringify(["test-account-key"])
-      );
-      sessionStorage.setItem(
-        "test-account-key",
-        JSON.stringify({
-          homeAccountId: "test-home-account-id",
-          environment: "login.microsoftonline.com",
-          tenantId: "test-tenant-id",
-          username: "test@example.com",
-          localAccountId: "test-local-account-id",
+      // Set mock JWT auth data in localStorage
+      const mockAuthData = {
+        access_token: "mock-jwt-token",
+        user: {
+          id: "test-user-id",
+          username: "testuser",
+          email: "test@example.com",
           name: "Test User",
-        })
-      );
+        }
+      };
+      localStorage.setItem("ai-video-creator-auth", JSON.stringify(mockAuthData));
     });
     
     await page.context().storageState({ path: authFile });
     return;
   }
   
-  // Option 2: Real Azure login (for local development)
-  // This requires manual intervention or a test user
+  // Option 2: Real JWT login (for local development)
+  // This uses actual test credentials
   
   await page.goto("/login");
   
-  // Wait for Azure login redirect
-  await page.waitForURL(/login\.microsoftonline\.com/);
-  
   // Fill in test credentials
-  await page.fill('input[name="loginfmt"]', process.env.E2E_TEST_USER!);
-  await page.click('input[type="submit"]');
-  
-  await page.waitForSelector('input[name="passwd"]');
-  await page.fill('input[name="passwd"]', process.env.E2E_TEST_PASSWORD!);
-  await page.click('input[type="submit"]');
-  
-  // Handle "Stay signed in?" prompt
-  await page.click('input[value="No"]');
+  await page.fill('input[name="username"]', process.env.E2E_TEST_USER!);
+  await page.fill('input[name="password"]', process.env.E2E_TEST_PASSWORD!);
+  await page.click('button[type="submit"]');
   
   // Wait for redirect back to app
   await page.waitForURL(/localhost/);
@@ -851,7 +837,7 @@ async def seed_test_data():
         # Create test user
         user = User(
             id="test-user-id",
-            entra_id="test-entra-id",
+            username="testuser",
             email="test@example.com",
             name="Test User",
         )

@@ -166,7 +166,7 @@ frontend/
 ├── src/
 │   ├── index.tsx                 # Entry point
 │   ├── App.tsx                   # Main app component
-│   ├── authConfig.ts             # MSAL configuration
+│   ├── authConfig.ts             # JWT Auth configuration
 │   ├── vite-env.d.ts
 │   │
 │   ├── assets/                   # Static assets
@@ -874,7 +874,8 @@ For video continuity between segments, the system supports two modes:
 │   │    users      │                                                 │
 │   ├───────────────┤                                                 │
 │   │ id (PK)       │                                                 │
-│   │ entra_id      │                                                 │
+│   │ username      │                                                 │
+│   │ password_hash │                                                 │
 │   │ email         │                                                 │
 │   │ name          │                                                 │
 │   │ created_at    │                                                 │
@@ -922,36 +923,25 @@ For video continuity between segments, the system supports two modes:
 ### 9.1 Authentication Flow
 
 ```
-┌─────────────────┐      ┌─────────────────┐      ┌─────────────────┐
-│   React SPA     │      │   Azure Entra   │      │   FastAPI       │
-│   (Frontend)    │      │   ID            │      │   (Backend)     │
-└─────────────────┘      └─────────────────┘      └─────────────────┘
-        │                         │                        │
-        │  1. Login Click         │                        │
-        │─────────────────────────▶                        │
-        │                         │                        │
-        │  2. Redirect to         │                        │
-        │     Entra Login         │                        │
-        │◀─────────────────────────                        │
-        │                         │                        │
-        │  3. User authenticates  │                        │
-        │─────────────────────────▶                        │
-        │                         │                        │
-        │  4. Redirect with       │                        │
-        │     Authorization Code  │                        │
-        │◀─────────────────────────                        │
-        │                         │                        │
-        │  5. Exchange code       │                        │
-        │     for tokens (MSAL)   │                        │
-        │─────────────────────────▶                        │
-        │                         │                        │
-        │  6. ID Token +          │                        │
-        │     Access Token        │                        │
-        │◀─────────────────────────                        │
+┌─────────────────┐                               ┌─────────────────┐
+│   React SPA     │                               │   FastAPI       │
+│   (Frontend)    │                               │   (Backend)     │
+└─────────────────┘                               └─────────────────┘
         │                                                  │
-        │  7. API Request with Bearer Token                │
+        │  1. Login with credentials                       │
         │─────────────────────────────────────────────────▶│
         │                                                  │
+        │  2. JWT Token Response                           │
+        │◀─────────────────────────────────────────────────│
+        │                                                  │
+        │  3. Store JWT Token in localStorage              │
+        │                                                  │
+        │  4. API Request with Bearer Token                │
+        │─────────────────────────────────────────────────▶│
+        │                                                  │
+        │  5. Verify JWT & Return Data                     │
+        │◀─────────────────────────────────────────────────│
+```
         │                                   8. Validate    │
         │                                      Token       │
         │                                                  │
@@ -968,18 +958,13 @@ For video continuity between segments, the system supports two modes:
 ┌─────────────────────────────────────────────────────────────────────┐
 │                        Azure Cloud                                   │
 │                                                                      │
-│   ┌─────────────────────────────────────────────────────────────┐  │
-│   │                  Azure Entra ID                              │  │
-│   │   - App Registration                                         │  │
-│   │   - User authentication                                      │  │
-│   └─────────────────────────────────────────────────────────────┘  │
-│                                                                      │
 │   ┌──────────────────────┐    ┌──────────────────────────────────┐ │
 │   │   Azure Static       │    │   Azure App Service              │ │
 │   │   Web Apps           │    │   (Linux Container)              │ │
 │   │   ─────────────────  │    │   ────────────────────────────   │ │
 │   │   React Frontend     │───▶│   FastAPI Backend                │ │
 │   │   (Build & Deploy)   │    │   Python 3.11+                   │ │
+│   │   JWT Auth           │    │   JWT Authentication             │ │
 │   └──────────────────────┘    │   FFmpeg installed               │ │
 │                               └──────────────────────────────────┘ │
 │                                              │                      │
@@ -1021,7 +1006,7 @@ For video continuity between segments, the system supports two modes:
 | **Complexity** | Wysoka (MCP transport, protocols) | Niska (REST API client) |
 | **OpenAI Integration** | Basic chat completions | OpenAI Agents SDK (handoffs, tools) |
 | **Frontend** | Brak (CLI/scripts) | React + TypeScript SPA |
-| **Authentication** | Brak | Azure Entra ID |
+| **Authentication** | Brak | OAuth2 JWT |
 | **Persistence** | Minimal (file-based) | PostgreSQL + SQLAlchemy |
 | **Deployment** | Manual | Azure + CI/CD |
 | **HITL** | Basic approval loop | Full state machine |

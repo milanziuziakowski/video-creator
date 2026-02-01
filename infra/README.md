@@ -86,18 +86,18 @@ az account show
 
 ## 🚀 Step-by-Step Deployment
 
-### Step 1: Create Azure Entra ID App Registration (FIRST!)
+### Step 1: Configure JWT Authentication (FIRST!)
 
-Before deploying infrastructure, create the App Registration for authentication:
+Before deploying infrastructure, ensure your JWT configuration is ready:
 
 ```powershell
-# 1. Create the App Registration
-az ad app create `
-  --display-name "AI Video Creator - Frontend" `
-  --sign-in-audience AzureADMyOrg `
-  --web-redirect-uris "http://localhost:5173" "http://localhost:3000"
+# Generate a secure JWT secret key (keep this safe!)
+$jwtSecret = -join ((65..90) + (97..122) + (48..57) | Get-Random -Count 64 | % {[char]$_})
+Write-Host "Generated JWT Secret: $jwtSecret"
 
-# 2. Note the output - save these values:
+# Save this value for later use in environment variables
+# You'll need it for: JWT_SECRET_KEY
+```
 #    - "appId" = This is your AZURE_CLIENT_ID
 #    - "id" = This is the Object ID (different from appId)
 
